@@ -1,0 +1,3162 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>勇士 Poppo 的冒險記</title>
+  <style>
+    /* =====================================================================
+       全域樣式與森林繪本主題配色（純離線 CSS，無任何外部依賴）
+       ===================================================================== */
+    :root {
+      --bg-dark: #253822;
+      --parchment: #fdf5df;
+      --parchment-border: #8b5a2b;
+      --gold-light: #ffe066;
+      --gold-dark: #d99b1e;
+      --green-btn: #3a8c45;
+      --green-btn-dark: #26612e;
+      --orange-btn: #e07a28;
+      --orange-btn-dark: #a65212;
+      --text-brown: #4a2c11;
+      --text-light: #fffdf5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: "PingFang HK", "Microsoft JhengHei", "Noto Sans TC", "Heiti TC", sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-brown);
+    }
+
+    /* 主遊戲容器：全螢幕自適應 */
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* 背景與主遊戲畫布 */
+    #gameCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* 覆蓋層通用樣式（開場、關卡選擇、結算畫面） */
+    .overlay-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(12px, 2.5vw, 28px);
+      z-index: 20;
+      background: radial-gradient(circle at center, rgba(32, 52, 26, 0.25) 0%, rgba(18, 30, 15, 0.62) 100%);
+      transition: opacity 0.25s ease;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* 繪本捲軸標題牌（還原插畫頂部木牌風格） */
+    .scroll-banner {
+      position: relative;
+      background: linear-gradient(180deg, #f9eccb 0%, #edd39c 100%);
+      border: 5px solid #7c4d25;
+      border-radius: 22px;
+      padding: clamp(10px, 1.8vh, 18px) clamp(26px, 4.5vw, 56px);
+      box-shadow: 0 8px 0 #563214, 0 14px 28px rgba(0, 0, 0, 0.45);
+      margin-bottom: clamp(12px, 2vh, 22px);
+      text-align: center;
+    }
+
+    .scroll-banner::before,
+    .scroll-banner::after {
+      content: "●";
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #8b5a2b;
+      font-size: clamp(14px, 1.8vw, 20px);
+    }
+
+    .scroll-banner::before { left: 14px; }
+    .scroll-banner::after { right: 14px; }
+
+    .scroll-banner h1 {
+      font-size: clamp(1.8rem, 4.2vw, 3.3rem);
+      font-weight: 900;
+      color: #4a280d;
+      letter-spacing: 0.06em;
+      text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    /* 羊皮紙對話與資訊卡片 */
+    .parchment-card {
+      width: min(92vw, 860px);
+      background: linear-gradient(180deg, #fff9ea 0%, #f5e5c0 100%);
+      border: 5px solid #8b5a2b;
+      border-radius: 28px;
+      padding: clamp(18px, 3vw, 32px);
+      box-shadow: 0 10px 0 #5b3818, 0 18px 36px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: clamp(12px, 2vh, 20px);
+    }
+
+    /* 開場畫面角色展示與自我介紹排列 */
+    .intro-layout {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(16px, 3vw, 32px);
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    #introPortraitCanvas {
+      width: clamp(170px, 24vw, 240px);
+      height: clamp(170px, 24vw, 240px);
+      border-radius: 24px;
+      background: radial-gradient(circle, #fffbe8 0%, #e4d3a3 100%);
+      border: 4px solid #b8823b;
+      box-shadow: inset 0 0 16px rgba(139, 90, 43, 0.25);
+      flex-shrink: 0;
+    }
+
+    .speech-bubble {
+      flex: 1;
+      min-width: 260px;
+      background: #ffffff;
+      border: 4px solid #9e6b34;
+      border-radius: 22px;
+      padding: clamp(14px, 2.2vw, 22px);
+      font-size: clamp(1.05rem, 2vw, 1.32rem);
+      line-height: 1.65;
+      color: #3d220a;
+      box-shadow: 0 5px 0 rgba(139, 90, 43, 0.25);
+    }
+
+    .speech-bubble .speaker-tag {
+      display: inline-block;
+      background: #e69d24;
+      color: #fff;
+      font-weight: 800;
+      padding: 3px 14px;
+      border-radius: 999px;
+      font-size: 0.92em;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 0 #9e630b;
+    }
+
+    /* 規則摘要方塊 */
+    .rules-box {
+      width: 100%;
+      background: rgba(255, 248, 225, 0.9);
+      border: 3px dashed #a37036;
+      border-radius: 18px;
+      padding: clamp(12px, 1.8vw, 18px) clamp(16px, 2.4vw, 24px);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px 18px;
+      font-size: clamp(1rem, 1.85vw, 1.24rem);
+      font-weight: 700;
+    }
+
+    .rule-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .rule-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      font-weight: 900;
+      color: #fff;
+      font-size: 1.05rem;
+      padding: 0 8px;
+    }
+
+    .badge-time { background: #2d7dd2; }
+    .badge-plus { background: #2e9e44; }
+    .badge-minus { background: #d9483b; }
+
+    /* 大型立體遊戲按鈕（適合課堂投影及學生點擊） */
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(14px, 2.5vw, 26px);
+      width: 100%;
+    }
+
+    .game-btn {
+      cursor: pointer;
+      border: 4px solid #4a2c11;
+      border-radius: 22px;
+      padding: clamp(14px, 2vh, 20px) clamp(26px, 4vw, 46px);
+      font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 2px 2px rgba(0, 0, 0, 0.4);
+      transition: transform 0.12s ease, filter 0.12s ease;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: clamp(200px, 28vw, 280px);
+    }
+
+    .game-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      filter: brightness(1.06);
+    }
+
+    .game-btn:active {
+      transform: translateY(4px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #4eb85c 0%, #2f873b 100%);
+      box-shadow: 0 7px 0 #1e5926, 0 12px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .btn-advanced {
+      background: linear-gradient(180deg, #f39534 0%, #cf6a17 100%);
+      box-shadow: 0 7px 0 #8a4208, 0 12px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(180deg, #5c9ce6 0%, #346cb0 100%);
+      box-shadow: 0 7px 0 #1e4473, 0 12px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .btn-subtext {
+      font-size: clamp(0.85rem, 1.4vw, 1.02rem);
+      font-weight: 700;
+      margin-top: 4px;
+      color: #fff8dc;
+    }
+
+    /* =====================================================================
+       遊戲進行中抬頭顯示器（HUD）
+       ===================================================================== */
+    #hudLayer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(8px, 1.5vw, 16px);
+    }
+
+    .hud-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      background: linear-gradient(180deg, rgba(255, 249, 232, 0.95) 0%, rgba(242, 224, 182, 0.95) 100%);
+      border: 4px solid #7c4d25;
+      border-radius: 18px;
+      padding: 8px 18px;
+      box-shadow: 0 5px 0 #4d2d12, 0 8px 16px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+    }
+
+    .hud-stat {
+      font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+      color: #4a280d;
+      white-space: nowrap;
+    }
+
+    .hud-stat span.num {
+      color: #1f7a32;
+      font-size: 1.2em;
+    }
+
+    .hud-stat.timer-urgent span.num {
+      color: #d62828;
+      animation: pulseText 0.6s infinite alternate;
+    }
+
+    @keyframes pulseText {
+      from { transform: scale(1); }
+      to { transform: scale(1.08); }
+    }
+
+    /* 固定位置的題目提示牌（加大加粗，方便課堂後排學生看清） */
+    .target-board {
+      background: linear-gradient(180deg, #fff5cc 0%, #ffd966 100%);
+      border: 6px solid #8a4b08;
+      border-radius: 24px;
+      padding: 12px clamp(24px, 4.2vw, 52px);
+      box-shadow: 0 7px 0 #5c3004, 0 12px 24px rgba(0, 0, 0, 0.38);
+      font-size: clamp(1.85rem, 4.1vw, 3.1rem);
+      font-weight: 900;
+      color: #3d1e04;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    .target-board .target-name {
+      color: #b81d13;
+      font-weight: 900;
+      text-decoration: underline;
+      text-decoration-thickness: 4px;
+      text-underline-offset: 6px;
+    }
+
+    .hud-mini-btn {
+      pointer-events: auto;
+      cursor: pointer;
+      background: #fff4d4;
+      border: 3px solid #7c4d25;
+      border-radius: 14px;
+      padding: 8px 14px;
+      font-size: clamp(0.92rem, 1.5vw, 1.12rem);
+      font-weight: 800;
+      color: #4a280d;
+      box-shadow: 0 3px 0 #5c3718;
+      transition: transform 0.1s;
+    }
+
+    .hud-mini-btn:active {
+      transform: translateY(2px);
+    }
+
+    /* 底部控制模式提示條（預留安全邊距避免被電腦 Dock 或瀏覽器介面遮擋） */
+    .hud-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    }
+
+    .control-status-pill {
+      background: rgba(34, 54, 28, 0.9);
+      color: #fffbe6;
+      border: 3px solid #d9a74a;
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: clamp(0.95rem, 1.65vw, 1.18rem);
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    /* 結算畫面得分展示 */
+    .final-score-box {
+      background: linear-gradient(180deg, #fff6cf 0%, #ffe07d 100%);
+      border: 5px solid #b57419;
+      border-radius: 24px;
+      padding: 16px 36px;
+      text-align: center;
+      box-shadow: inset 0 0 14px rgba(217, 155, 30, 0.3);
+    }
+
+    .final-score-label {
+      font-size: clamp(1.1rem, 2vw, 1.4rem);
+      font-weight: 800;
+      color: #6e4210;
+    }
+
+    .final-score-value {
+      font-size: clamp(2.6rem, 5.5vw, 4.2rem);
+      font-weight: 900;
+      color: #267d37;
+      line-height: 1.15;
+    }
+
+    .final-comment {
+      font-size: clamp(1.1rem, 2.1vw, 1.45rem);
+      font-weight: 800;
+      color: #4a280d;
+      text-align: center;
+    }
+
+    /* 檔案開啟（file://）與鏡頭使用說明橫幅 */
+    .camera-notice-banner {
+      width: 100%;
+      background: #fff3cd;
+      border: 3px solid #d39e00;
+      border-radius: 16px;
+      padding: 10px 16px;
+      font-size: clamp(0.92rem, 1.65vw, 1.12rem);
+      font-weight: 700;
+      color: #5c3c00;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    /* 開始前鏡頭開關切換按鈕 */
+    .camera-pref-btn {
+      cursor: pointer;
+      background: linear-gradient(180deg, #fff8e6 0%, #edd7a6 100%);
+      border: 3px solid #7c4d25;
+      border-radius: 16px;
+      padding: 10px 22px;
+      font-size: clamp(1rem, 1.8vw, 1.22rem);
+      font-weight: 900;
+      color: #4a280d;
+      box-shadow: 0 4px 0 #5c3718;
+      transition: transform 0.1s ease, filter 0.1s ease;
+    }
+
+    .camera-pref-btn:hover {
+      filter: brightness(1.04);
+    }
+
+    .camera-pref-btn:active {
+      transform: translateY(3px);
+    }
+
+    .camera-pref-btn.cam-off {
+      background: linear-gradient(180deg, #ececec 0%, #d4d4d4 100%);
+      border-color: #666666;
+      color: #333333;
+      box-shadow: 0 4px 0 #4d4d4d;
+    }
+
+    /* 3-2-1 倒數與準備提示覆蓋層 */
+    .countdown-badge {
+      background: linear-gradient(180deg, #fff9e2 0%, #ffd86b 100%);
+      border: 6px solid #7c4d25;
+      border-radius: 36px;
+      padding: 24px 54px;
+      box-shadow: 0 10px 0 #4d2d12, 0 18px 36px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+
+    .countdown-title {
+      font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+      font-weight: 900;
+      color: #5c320e;
+      margin-bottom: 6px;
+    }
+
+    .countdown-number {
+      font-size: clamp(4rem, 10vw, 7rem);
+      font-weight: 900;
+      color: #c92a1d;
+      line-height: 1.05;
+      text-shadow: 0 4px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    /* 結算畫面答對與答錯題數統計列 */
+    .result-stats-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(12px, 2.5vw, 24px);
+      width: 100%;
+    }
+
+    .result-stat-pill {
+      min-width: 175px;
+      padding: 12px 24px;
+      border-radius: 18px;
+      border: 4px solid #7c4d25;
+      font-size: clamp(1.1rem, 2vw, 1.4rem);
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .stat-correct {
+      background: #e3f9e8;
+      border-color: #267d37;
+      color: #1b5e28;
+    }
+
+    .stat-wrong {
+      background: #fde8e8;
+      border-color: #c92a2a;
+      color: #8f1d1d;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 主遊戲畫布（包含森林背景、右下角鏡頭預覽小視窗、立體圖形軌道與勇士 Poppo） -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 隱藏的視像元素 -->
+    <video id="webcamVideo" playsinline muted style="display:none;"></video>
+
+    <!-- =====================================================================
+         畫面一：開場自我介紹與規則說明
+         ===================================================================== -->
+    <section id="introScreen" class="overlay-screen">
+      <div class="scroll-banner">
+        <h1>勇士 Poppo 的冒險記</h1>
+      </div>
+
+      <div class="parchment-card">
+        <div class="intro-layout">
+          <canvas id="introPortraitCanvas" width="260" height="260"></canvas>
+          <div class="speech-bubble">
+            <div class="speaker-tag">猴子勇士 Poppo</div>
+            <p>
+              你好呀！我是森林裡的<strong>猴子勇士 Poppo</strong>！<br />
+              今天我要在魔法森林裡尋找各種<strong>立體圖形</strong>寶物！<br />
+              請用<strong>視像鏡頭移動身體或頭部位置來控制</strong>（亦可用<strong>鍵盤方向鍵／WASD</strong>或<strong>滑鼠／觸控拖移</strong>），帶我飛過去碰撞<strong>正確的立體圖形</strong>就能得分！
+            </p>
+          </div>
+        </div>
+
+        <div class="rules-box">
+          <div class="rule-item">
+            <span class="rule-badge badge-time">45秒</span>
+            <span>每局限時 45 秒</span>
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-plus">+2分</span>
+            <span>碰到正確立體加 2 分</span>
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-minus">-1分</span>
+            <span>碰到錯誤立體扣 1 分（最低 0 分）</span>
+          </div>
+        </div>
+
+        <div class="camera-notice-banner">
+          提示：若直接用檔案（file://）打開，鏡頭通常不能用，需以 https 網站或本機伺服器開啟；若鏡頭無法使用，可改用鍵盤或拖移。
+        </div>
+
+        <div class="btn-row">
+          <button id="btnPrefCameraIntro" class="camera-pref-btn" type="button">
+            視像鏡頭體感：開啟（點擊切換）
+          </button>
+          <button id="btnToLevelSelect" class="game-btn btn-primary" type="button">
+            開始冒險！
+            <span class="btn-subtext">前往選擇初階或高階關卡</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         畫面二：關卡選擇（初階 / 高階）
+         ===================================================================== -->
+    <section id="levelScreen" class="overlay-screen hidden">
+      <div class="scroll-banner">
+        <h1>選擇冒險關卡</h1>
+      </div>
+
+      <div class="parchment-card">
+        <div class="rules-box">
+          <div class="rule-item">
+            <span class="rule-badge badge-time">45秒</span>
+            <span>限時 45 秒，完成鏡頭設定並倒數後開始計時！</span>
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-plus">+2分</span>
+            <span>碰到正確立體 +2 分</span>
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-minus">-1分</span>
+            <span>碰到錯誤立體 -1 分（最低 0 分）</span>
+          </div>
+        </div>
+
+        <div class="camera-notice-banner">
+          提示：若直接用檔案（file://）打開，鏡頭通常不能用，需以 https 網站或本機伺服器開啟；若鏡頭無法使用，可改用鍵盤或拖移。
+        </div>
+
+        <button id="btnPrefCameraLevel" class="camera-pref-btn" type="button">
+          視像鏡頭體感：開啟（點擊切換）
+        </button>
+
+        <div class="btn-row">
+          <button id="btnStartBeginner" class="game-btn btn-primary" type="button">
+            初階
+            <span class="btn-subtext">角柱、角錐、圓柱、圓錐、球</span>
+          </button>
+
+          <button id="btnStartAdvanced" class="game-btn btn-advanced" type="button">
+            高階
+            <span class="btn-subtext">三至六角柱、三至六角錐、圓柱、圓錐、球</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         畫面二之二：鏡頭權限處理與 3-2-1 準備倒數層
+         ===================================================================== -->
+    <section id="countdownOverlay" class="overlay-screen hidden">
+      <div class="countdown-badge">
+        <div class="countdown-title" id="countdownStatusTitle">正在準備鏡頭與控制方式...</div>
+        <div class="countdown-number" id="countdownNumberText">準備</div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         畫面二之三：老師講解用暫停覆蓋層
+         ===================================================================== -->
+    <section id="pauseOverlay" class="overlay-screen hidden">
+      <div class="scroll-banner">
+        <h1>遊戲已暫停</h1>
+      </div>
+
+      <div class="parchment-card">
+        <div class="final-comment">
+          計時與圖形移動已暫停，方便老師講解立體圖形特徵！
+        </div>
+
+        <div class="btn-row">
+          <button id="btnResumeGame" class="game-btn btn-primary" type="button">
+            繼續遊戲
+            <span class="btn-subtext">恢復倒數與冒險</span>
+          </button>
+
+          <button id="btnPauseToLevels" class="game-btn btn-secondary" type="button">
+            返回選擇初階／高階
+            <span class="btn-subtext">結束本局並重選關卡</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         畫面三：遊戲進行中 HUD
+         ===================================================================== -->
+    <div id="hudLayer" class="hidden">
+      <div class="hud-top">
+        <div class="hud-panel">
+          <div class="hud-stat" id="hudLevelTag">初階</div>
+          <div class="hud-stat">分數：<span class="num" id="hudScore">0</span></div>
+        </div>
+
+        <div class="target-board" id="hudTargetBoard">
+          找出：<span class="target-name" id="hudTargetName">角柱</span>
+        </div>
+
+        <div class="hud-panel">
+          <div class="hud-stat" id="hudTimerBox">剩餘：<span class="num" id="hudTimer">45</span> 秒</div>
+          <button id="btnPauseGame" class="hud-mini-btn" type="button">暫停</button>
+          <button id="btnHudReturnLevels" class="hud-mini-btn" type="button">返回關卡</button>
+          <button id="btnToggleSound" class="hud-mini-btn" type="button">音效：開</button>
+          <button id="btnFullscreen" class="hud-mini-btn" type="button">全螢幕</button>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="control-status-pill" id="controlStatusText">
+          控制方式：正在啟動視像鏡頭體感...
+        </div>
+        <button id="btnSwitchControl" class="hud-mini-btn" type="button">
+          切換控制模式
+        </button>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         畫面四：時間結束結算畫面
+         ===================================================================== -->
+    <section id="resultScreen" class="overlay-screen hidden">
+      <div class="scroll-banner">
+        <h1>時間到！冒險完成</h1>
+      </div>
+
+      <div class="parchment-card">
+        <div class="final-score-box">
+          <div class="final-score-label" id="resultLevelLabel">初階關卡總得分</div>
+          <div class="final-score-value"><span id="resultScore">0</span> 分</div>
+        </div>
+
+        <div class="result-stats-grid">
+          <div class="result-stat-pill stat-correct">
+            答對題數：<span id="resultCorrectCount">0</span> 題
+          </div>
+          <div class="result-stat-pill stat-wrong">
+            答錯題數：<span id="resultWrongCount">0</span> 題
+          </div>
+        </div>
+
+        <div class="final-comment" id="resultComment">
+          做得好！Poppo 為你感到驕傲！
+        </div>
+
+        <div class="btn-row">
+          <button id="btnPlayAgain" class="game-btn btn-primary" type="button">
+            再玩一次
+            <span class="btn-subtext">重新挑戰同一關卡</span>
+          </button>
+
+          <button id="btnBackToLevels" class="game-btn btn-secondary" type="button">
+            返回選擇初階／高階
+            <span class="btn-subtext">切換難度重新開始</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * 勇士 Poppo 的冒險記 - 單一離線 HTML5 遊戲主程式
+     * 語言：繁體中文（香港用語）
+     * 功能包含：
+     *  1. 依插畫繪製之猴子勇士 Poppo（平常、開心、受擊三種表情與動態）
+     *  2. 繪本森林場景與點綴小綠史萊姆
+     *  3. 初階（3至6邊隨機角柱／角錐）與高階 3D 立體圖形精準投影繪製
+     *  4. 3 條垂直軌道滑動、碰撞冷卻與新題短暫無敵保護
+     *  5. WebRTC 鏡頭體感動態追蹤（右下角小視窗預覽）＋ 鍵盤／滑鼠／觸控自動後備
+     *  6. Web Audio API 離線音效合成
+     * =========================================================================
+     */
+
+    (function () {
+      "use strict";
+
+      /* ---------------------------------------------------------------------
+         1. 題庫定義（嚴格符合題目指定名稱）
+         --------------------------------------------------------------------- */
+      const SHAPE_POOLS = {
+        beginner: ["角柱", "角錐", "圓柱", "圓錐", "球"],
+        advanced: [
+          "三角柱", "四角柱", "五角柱", "六角柱",
+          "三角錐", "四角錐", "五角錐", "六角錐",
+          "圓柱", "圓錐", "球"
+        ]
+      };
+
+      const PRISM_SHAPES = ["三角柱", "四角柱", "五角柱", "六角柱"];
+      const PYRAMID_SHAPES = ["三角錐", "四角錐", "五角錐", "六角錐"];
+      const CURVED_SHAPES = ["圓柱", "圓錐", "球"];
+
+      const LEVEL_NAMES = {
+        beginner: "初階",
+        advanced: "高階"
+      };
+
+      /* ---------------------------------------------------------------------
+         2. Web Audio API 離線音效合成器（無外部檔案依賴）
+         --------------------------------------------------------------------- */
+      const SoundFX = (function () {
+        let audioCtx = null;
+        let enabled = true;
+
+        function ensureContext() {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              audioCtx = new AudioContextClass();
+            }
+          }
+          if (audioCtx && audioCtx.state === "suspended") {
+            audioCtx.resume().catch(() => {});
+          }
+          return audioCtx;
+        }
+
+        function playTone(freq, type, duration, startDelay = 0, gainVal = 0.22, endFreq = null) {
+          if (!enabled) return;
+          const ctx = ensureContext();
+          if (!ctx) return;
+
+          const now = ctx.currentTime + startDelay;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+          if (endFreq !== null) {
+            osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+          }
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(gainVal, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        }
+
+        return {
+          toggle() {
+            enabled = !enabled;
+            return enabled;
+          },
+          isEnabled() {
+            return enabled;
+          },
+          click() {
+            playTone(540, "triangle", 0.08, 0, 0.16, 680);
+          },
+          correct() {
+            playTone(523.25, "triangle", 0.11, 0.00, 0.24);
+            playTone(659.25, "triangle", 0.11, 0.08, 0.24);
+            playTone(783.99, "triangle", 0.14, 0.16, 0.26);
+            playTone(1046.50, "sine", 0.26, 0.24, 0.24);
+          },
+          wrong() {
+            playTone(230, "sawtooth", 0.18, 0.00, 0.20, 175);
+            playTone(170, "sawtooth", 0.26, 0.14, 0.20, 125);
+          },
+          tick() {
+            playTone(880, "sine", 0.06, 0, 0.10);
+          },
+          countdownBeep() {
+            playTone(620, "sine", 0.12, 0, 0.18);
+          },
+          countdownGo() {
+            playTone(880, "triangle", 0.22, 0, 0.24, 1174.66);
+          },
+          finish() {
+            playTone(523.25, "triangle", 0.15, 0.00, 0.22);
+            playTone(659.25, "triangle", 0.15, 0.12, 0.22);
+            playTone(783.99, "triangle", 0.15, 0.24, 0.22);
+            playTone(1046.50, "triangle", 0.38, 0.36, 0.25);
+          }
+        };
+      })();
+
+      /* ---------------------------------------------------------------------
+         3. 插畫精靈繪製：猴子勇士 Poppo（水彩繪本精靈版，含平常／開心／受擊三態）
+            忠實還原插畫細節：棕色小猴、金色頭盔插珊瑚紅捲羽、太陽穴白羽翼、
+            格紋綠金色盔甲（胸甲有香蕉圖案）、右手持寬刃銀劍、
+            左手持木紋香蕉圓盾、躍起姿態；預先快取高清精靈圖層
+         --------------------------------------------------------------------- */
+      function drawBananaIcon(ctx, x, y, scale, rotation) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+
+        const bananaGrad = ctx.createLinearGradient(-14, -6, 15, 6);
+        bananaGrad.addColorStop(0, "#fff066");
+        bananaGrad.addColorStop(0.6, "#ffd426");
+        bananaGrad.addColorStop(1, "#e5a912");
+
+        ctx.fillStyle = bananaGrad;
+        ctx.strokeStyle = "#5c3b09";
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-14, -6);
+        ctx.quadraticCurveTo(0, 16, 15, -4);
+        ctx.quadraticCurveTo(3, 5, -14, -6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 香蕉弧線紋理與蒂頭
+        ctx.strokeStyle = "rgba(122, 83, 8, 0.45)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-10, -2);
+        ctx.quadraticCurveTo(1, 7, 11, -2);
+        ctx.stroke();
+
+        ctx.fillStyle = "#4d2f05";
+        ctx.fillRect(-16, -8, 4.5, 4.5);
+        ctx.restore();
+      }
+
+      function renderPoppoSpriteArtwork(ctx, cx, cy, radius, mood) {
+        const s = radius / 60;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(s, s);
+
+        // 水彩繪本暖棕墨線設定
+        const inkColor = "#42230f";
+
+        // 1. 捲曲的棕色小猴尾巴（右側）
+        ctx.save();
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 10;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(18, 22);
+        ctx.bezierCurveTo(45, 24, 53, 3, 40, -7);
+        ctx.bezierCurveTo(30, -13, 25, 0, 34, 4);
+        ctx.stroke();
+
+        const tailGrad = ctx.createLinearGradient(18, 22, 46, -6);
+        tailGrad.addColorStop(0, "#7a4925");
+        tailGrad.addColorStop(1, "#a66c3e");
+        ctx.strokeStyle = tailGrad;
+        ctx.lineWidth = 5.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. 躍起的雙腿與小猴腳掌
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 11.5;
+        ctx.beginPath();
+        ctx.moveTo(-12, 24);
+        ctx.lineTo(-20, 38);
+        ctx.lineTo(-14, 48);
+        ctx.stroke();
+        ctx.strokeStyle = "#8f5932";
+        ctx.lineWidth = 6.8;
+        ctx.stroke();
+
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 11.5;
+        ctx.beginPath();
+        ctx.moveTo(10, 24);
+        ctx.lineTo(18, 37);
+        ctx.lineTo(25, 45);
+        ctx.stroke();
+        ctx.strokeStyle = "#8f5932";
+        ctx.lineWidth = 6.8;
+        ctx.stroke();
+
+        ctx.fillStyle = "#f2cfb1";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.ellipse(-13, 50, 7.2, 4.6, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.ellipse(26, 47, 7.2, 4.6, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // 3. 右手持寬刃銀劍（畫面左側）
+        ctx.save();
+        ctx.translate(-30, 8);
+        ctx.rotate(-0.16);
+
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 10.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(10, -2);
+        ctx.lineTo(-4, 4);
+        ctx.stroke();
+        ctx.strokeStyle = "#8f5932";
+        ctx.lineWidth = 5.8;
+        ctx.stroke();
+
+        // 寬刃水彩銀劍身
+        const bladeGrad = ctx.createLinearGradient(-38, -42, 0, 0);
+        bladeGrad.addColorStop(0, "#ffffff");
+        bladeGrad.addColorStop(0.5, "#dbe4ee");
+        bladeGrad.addColorStop(1, "#aebbc9");
+        ctx.fillStyle = bladeGrad;
+        ctx.strokeStyle = "#2f3742";
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-7, 1);
+        ctx.lineTo(-35, -33);
+        ctx.lineTo(-42, -45);
+        ctx.lineTo(-27, -39);
+        ctx.lineTo(2, -6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 劍身中央血槽脊線
+        ctx.strokeStyle = "#5c6878";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(-4, -3);
+        ctx.lineTo(-34, -37);
+        ctx.stroke();
+
+        // 金色護手與深棕握柄
+        ctx.fillStyle = "#e6b432";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.roundRect(-15, -7, 23, 6.5, 3);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#6e421a";
+        ctx.beginPath();
+        ctx.roundRect(-5, -1, 6.5, 11.5, 2.5);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // 4. 格紋綠金色盔甲身軀（胸甲有香蕉圖案＋葉脈護腰甲片）
+        ctx.save();
+        ctx.fillStyle = "#e8bc46";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.3;
+        ctx.beginPath();
+        ctx.ellipse(-20, 4, 9.5, 6.8, -0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(20, 4, 9.5, 6.8, 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        const armorGrad = ctx.createLinearGradient(0, 0, 0, 27);
+        armorGrad.addColorStop(0, "#f7e39c");
+        armorGrad.addColorStop(1, "#d9ae48");
+        ctx.fillStyle = armorGrad;
+        ctx.beginPath();
+        ctx.moveTo(-17, 1);
+        ctx.lineTo(17, 1);
+        ctx.lineTo(15, 22);
+        ctx.lineTo(0, 27);
+        ctx.lineTo(-15, 22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 盔甲菱形格紋細節（還原插畫胸甲網格）
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = "rgba(110, 68, 18, 0.36)";
+        ctx.lineWidth = 1.2;
+        for (let gx = -24; gx <= 24; gx += 7) {
+          ctx.beginPath();
+          ctx.moveTo(gx, 0);
+          ctx.lineTo(gx + 18, 28);
+          ctx.moveTo(gx, 0);
+          ctx.lineTo(gx - 18, 28);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 綠色葉片護腰甲片（帶葉脈線條）
+        const skirtAngles = [-0.32, 0, 0.32];
+        const skirtXs = [-11, 0, 11];
+        for (let i = 0; i < 3; i++) {
+          ctx.save();
+          ctx.translate(skirtXs[i], 23);
+          ctx.rotate(skirtAngles[i]);
+          ctx.fillStyle = "#84bd4c";
+          ctx.strokeStyle = inkColor;
+          ctx.lineWidth = 2.1;
+          ctx.beginPath();
+          ctx.moveTo(-6.2, -2);
+          ctx.lineTo(6.2, -2);
+          ctx.lineTo(5.2, 11.5);
+          ctx.lineTo(0, 14.5);
+          ctx.lineTo(-5.2, 11.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = "#4f7a26";
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, 11);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 胸前白色盾牌紋章與香蕉圖案
+        ctx.fillStyle = "#fff9e6";
+        ctx.strokeStyle = "#8a5a19";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 12, 8.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        drawBananaIcon(ctx, 0, 12, 0.56, -0.15);
+        ctx.restore();
+
+        // 5. 小猴頭部（水彩棕色毛髮、圓耳朵、心形淺膚面罩）
+        ctx.save();
+        const furGrad = ctx.createRadialGradient(-6, -28, 4, 0, -22, 28);
+        furGrad.addColorStop(0, "#a86d40");
+        furGrad.addColorStop(1, "#784723");
+
+        ctx.fillStyle = furGrad;
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(-28, -22, 10.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(28, -22, 10.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f2cfb1";
+        ctx.beginPath();
+        ctx.arc(-28, -22, 5.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(28, -22, 5.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = furGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, -22, 26.5, 23.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f9e3ce";
+        ctx.beginPath();
+        ctx.moveTo(0, -31);
+        ctx.bezierCurveTo(-15, -38, -22, -23, -19, -12);
+        ctx.bezierCurveTo(-16, -2, 16, -2, 19, -12);
+        ctx.bezierCurveTo(22, -23, 15, -38, 0, -31);
+        ctx.closePath();
+        ctx.fill();
+
+        // 臉頰紅暈與插畫斜線腮紅紋
+        ctx.fillStyle = mood === "hurt" ? "rgba(210, 70, 70, 0.45)" : "rgba(242, 120, 120, 0.45)";
+        ctx.beginPath();
+        ctx.ellipse(-13.5, -13, 5.2, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(13.5, -13, 5.2, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(195, 75, 75, 0.65)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-15, -14.5); ctx.lineTo(-16.5, -11.5);
+        ctx.moveTo(-12.5, -14.5); ctx.lineTo(-14, -11.5);
+        ctx.moveTo(12.5, -14.5); ctx.lineTo(11, -11.5);
+        ctx.moveTo(15, -14.5); ctx.lineTo(13.5, -11.5);
+        ctx.stroke();
+
+        // 小鼻孔
+        ctx.fillStyle = "#5c3317";
+        ctx.beginPath();
+        ctx.ellipse(-2, -16.5, 1.3, 1.8, 0, 0, Math.PI * 2);
+        ctx.ellipse(2, -16.5, 1.3, 1.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 6. 表情狀態：平常（normal）、答對開心（happy）、答錯受擊（hurt）
+        ctx.strokeStyle = "#361b08";
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = "round";
+
+        if (mood === "happy") {
+          ctx.beginPath();
+          ctx.arc(-9, -20, 4.2, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(9, -20, 4.2, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.stroke();
+
+          ctx.fillStyle = "#e05a5a";
+          ctx.beginPath();
+          ctx.arc(0, -11.5, 5.8, 0, Math.PI);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#ffe047";
+          drawStarSparkle(ctx, -33, -42, 6);
+          drawStarSparkle(ctx, 35, -39, 7);
+        } else if (mood === "hurt") {
+          ctx.beginPath();
+          ctx.moveTo(-13.5, -26);
+          ctx.lineTo(-6, -23);
+          ctx.moveTo(13.5, -26);
+          ctx.lineTo(6, -23);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(-12.5, -21.5);
+          ctx.lineTo(-7, -16);
+          ctx.moveTo(-7, -21.5);
+          ctx.lineTo(-12.5, -16);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(7, -21.5);
+          ctx.lineTo(12.5, -16);
+          ctx.moveTo(12.5, -21.5);
+          ctx.lineTo(7, -16);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(-6.5, -9);
+          ctx.quadraticCurveTo(-3, -12.5, 0, -9);
+          ctx.quadraticCurveTo(3, -5.5, 6.5, -9);
+          ctx.stroke();
+
+          ctx.fillStyle = "#70d6ff";
+          ctx.beginPath();
+          ctx.moveTo(21, -28);
+          ctx.quadraticCurveTo(25.5, -20, 21, -18);
+          ctx.quadraticCurveTo(16.5, -20, 21, -28);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-12, -24.5);
+          ctx.lineTo(-7, -23);
+          ctx.moveTo(12, -24.5);
+          ctx.lineTo(7, -23);
+          ctx.stroke();
+
+          ctx.fillStyle = "#2b1608";
+          ctx.beginPath();
+          ctx.arc(-9, -19.5, 2.8, 0, Math.PI * 2);
+          ctx.arc(9, -19.5, 2.8, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(-9.8, -20.4, 0.95, 0, Math.PI * 2);
+          ctx.arc(8.2, -20.4, 0.95, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(-5, -11);
+          ctx.quadraticCurveTo(-2.5, -8.5, 0, -10.5);
+          ctx.quadraticCurveTo(2.5, -8.5, 5, -11);
+          ctx.stroke();
+        }
+
+        // 7. 金色頭盔、珊瑚紅捲羽與太陽穴白羽翼
+        const plumeGrad = ctx.createLinearGradient(-4, -49, 14, -64);
+        plumeGrad.addColorStop(0, "#f28568");
+        plumeGrad.addColorStop(1, "#d95638");
+        ctx.fillStyle = plumeGrad;
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(-2, -49);
+        ctx.bezierCurveTo(-6, -64, 13, -69, 15, -56);
+        ctx.bezierCurveTo(16, -49, 6, -47, 2, -49);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const helmGrad = ctx.createLinearGradient(-13, -50, 13, -38);
+        helmGrad.addColorStop(0, "#f7e18b");
+        helmGrad.addColorStop(1, "#cf9b2b");
+        ctx.fillStyle = helmGrad;
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.3;
+        ctx.beginPath();
+        ctx.arc(0, -38, 13.5, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#d49b27";
+        ctx.beginPath();
+        ctx.roundRect(-15.5, -40, 31, 4.8, 2.2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 太陽穴白色小羽翼＋金色圓扣
+        ctx.fillStyle = "#fffcf2";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 1.9;
+        ctx.beginPath();
+        ctx.moveTo(-22, -31);
+        ctx.quadraticCurveTo(-36, -39, -33, -47);
+        ctx.quadraticCurveTo(-24, -42, -20, -34);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(22, -31);
+        ctx.quadraticCurveTo(36, -39, 33, -47);
+        ctx.quadraticCurveTo(24, -42, 20, -34);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#e6b432";
+        ctx.beginPath();
+        ctx.arc(-22, -32, 3.2, 0, Math.PI * 2);
+        ctx.arc(22, -32, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        // 8. 左手持木紋金邊香蕉圓盾（畫面右側，含放射木板線條與香蕉圖案）
+        ctx.save();
+        ctx.translate(32, 10);
+        ctx.fillStyle = "#a38152";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 17.5, 21.5, 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 盾牌外框放射木板紋理
+        ctx.strokeStyle = "rgba(66, 35, 15, 0.42)";
+        ctx.lineWidth = 1.3;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * 11.5, Math.sin(a) * 14.5);
+          ctx.lineTo(Math.cos(a) * 17.5, Math.sin(a) * 21.5);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "#f9edd0";
+        ctx.strokeStyle = inkColor;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 11.8, 14.8, 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        drawBananaIcon(ctx, 0, 0, 0.74, -0.25);
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      // 預先生成三種狀態的高清插畫精靈貼圖快取
+      const poppoSprites = {};
+      ["normal", "happy", "hurt"].forEach((moodKey) => {
+        const spCanvas = document.createElement("canvas");
+        spCanvas.width = 280;
+        spCanvas.height = 280;
+        const spCtx = spCanvas.getContext("2d");
+        renderPoppoSpriteArtwork(spCtx, 140, 144, 112, moodKey);
+        poppoSprites[moodKey] = spCanvas;
+      });
+
+      function drawPoppo(ctx, cx, cy, radius, mood, timeSec) {
+        const bob = Math.sin(timeSec * 5.0) * (radius * 0.06);
+        const wobbleX = mood === "hurt" ? Math.sin(timeSec * 42) * (radius * 0.08) : 0;
+        const tilt = mood === "happy"
+          ? Math.sin(timeSec * 10) * 0.08
+          : Math.sin(timeSec * 3.2) * 0.03;
+
+        const sprite = poppoSprites[mood] || poppoSprites.normal;
+        const drawSize = radius * 2.48;
+
+        ctx.save();
+        ctx.translate(cx + wobbleX, cy + bob);
+        ctx.rotate(tilt);
+
+        // 答對或受擊時在精靈背後加入柔和光暈襯托
+        if (mood === "happy") {
+          ctx.fillStyle = "rgba(255, 232, 102, 0.36)";
+          ctx.beginPath();
+          ctx.arc(0, 0, radius * 1.18, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (mood === "hurt") {
+          ctx.fillStyle = "rgba(235, 75, 75, 0.30)";
+          ctx.beginPath();
+          ctx.arc(0, 0, radius * 1.15, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.drawImage(sprite, -drawSize * 0.5, -drawSize * 0.5, drawSize, drawSize);
+        ctx.restore();
+      }
+
+      function drawStarSparkle(ctx, x, y, r) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+          ctx.rotate(Math.PI / 2);
+          ctx.moveTo(0, 0);
+          ctx.lineTo(r * 0.28, r * 0.28);
+          ctx.lineTo(0, r);
+          ctx.lineTo(-r * 0.28, r * 0.28);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      /* ---------------------------------------------------------------------
+         4. 森林繪本背景繪製（樹木、蘑菇、石柱遺跡與角落點綴綠色小史萊姆）
+         --------------------------------------------------------------------- */
+      function drawForestBackground(ctx, w, h, timeSec, mood) {
+        // 1. 溫暖陽光林間漸層天空
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+        skyGrad.addColorStop(0, "#cfe3a4");
+        skyGrad.addColorStop(0.45, "#9ec474");
+        skyGrad.addColorStop(1, "#5c8544");
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // 2. 斜射林間金色光束
+        ctx.save();
+        const beamGrad = ctx.createLinearGradient(w * 0.2, 0, w * 0.7, h * 0.85);
+        beamGrad.addColorStop(0, "rgba(255, 250, 205, 0.34)");
+        beamGrad.addColorStop(1, "rgba(255, 250, 205, 0.0)");
+        ctx.fillStyle = beamGrad;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.12, 0);
+        ctx.lineTo(w * 0.45, 0);
+        ctx.lineTo(w * 0.82, h);
+        ctx.lineTo(w * 0.32, h);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // 3. 遠景樹幹與樹冠輪廓
+        ctx.save();
+        ctx.fillStyle = "rgba(63, 94, 48, 0.42)";
+        const farTrees = [0.08, 0.24, 0.48, 0.72, 0.91];
+        farTrees.forEach((txRatio, i) => {
+          const tx = w * txRatio;
+          const tw = Math.max(26, w * 0.032);
+          ctx.fillRect(tx - tw * 0.5, 0, tw, h * 0.82);
+          ctx.beginPath();
+          ctx.arc(tx, h * (0.1 + (i % 2) * 0.05), tw * 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+
+        // 4. 苔蘚森林草地地面
+        const groundY = h * 0.78;
+        const groundGrad = ctx.createLinearGradient(0, groundY, 0, h);
+        groundGrad.addColorStop(0, "#76a34e");
+        groundGrad.addColorStop(0.4, "#588238");
+        groundGrad.addColorStop(1, "#3d5e26");
+        ctx.fillStyle = groundGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY + 14);
+        ctx.quadraticCurveTo(w * 0.3, groundY - 12, w * 0.62, groundY + 10);
+        ctx.quadraticCurveTo(w * 0.85, groundY + 24, w, groundY + 4);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fill();
+
+        // 5. 古老石柱遺跡與苔蘚石塊（還原插畫左側遺跡與右側苔石）
+        ctx.save();
+        ctx.fillStyle = "#b8b5a4";
+        ctx.strokeStyle = "#5c5949";
+        ctx.lineWidth = 2.5;
+        const ruinX = w * 0.14;
+        const ruinY = groundY - 36;
+        ctx.beginPath();
+        ctx.roundRect(ruinX, ruinY, 26, 48, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(ruinX - 6, ruinY - 8, 38, 10, 3);
+        ctx.fill();
+        ctx.stroke();
+
+        // 右下苔蘚岩石
+        ctx.fillStyle = "#9e9b8b";
+        ctx.beginPath();
+        ctx.ellipse(w * 0.88, groundY + 26, 48, 24, 0, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#6ca143";
+        ctx.beginPath();
+        ctx.ellipse(w * 0.88, groundY + 12, 42, 10, 0, Math.PI, 0);
+        ctx.fill();
+        ctx.restore();
+
+        // 6. 左右兩側近景大樹幹與可愛小蘑菇
+        ctx.save();
+        ctx.fillStyle = "#6b4423";
+        ctx.strokeStyle = "#3d2410";
+        ctx.lineWidth = 3;
+        const sideTrunkW = Math.max(28, w * 0.036);
+        ctx.fillRect(-6, 0, sideTrunkW, h);
+        ctx.strokeRect(-6, 0, sideTrunkW, h);
+        ctx.fillRect(w - sideTrunkW + 6, 0, sideTrunkW, h);
+        ctx.strokeRect(w - sideTrunkW + 6, 0, sideTrunkW, h);
+
+        // 森林紅白斑點小蘑菇
+        const mushrooms = [
+          { x: w * 0.09, y: groundY + 24, s: 1.0 },
+          { x: w * 0.12, y: groundY + 30, s: 0.72 },
+          { x: w * 0.82, y: groundY + 34, s: 0.85 }
+        ];
+        mushrooms.forEach((m) => {
+          ctx.save();
+          ctx.translate(m.x, m.y);
+          ctx.scale(m.s, m.s);
+          ctx.fillStyle = "#f7eed7";
+          ctx.strokeStyle = "#4d2f14";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-5, 0, 10, 14, 3);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#e67e45";
+          ctx.beginPath();
+          ctx.arc(0, 0, 14, Math.PI, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#fff8e6";
+          ctx.beginPath();
+          ctx.arc(-5, -6, 2.4, 0, Math.PI * 2);
+          ctx.arc(4, -7, 2.8, 0, Math.PI * 2);
+          ctx.arc(0, -3, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+        ctx.restore();
+
+        // 7. 角落點綴的綠色小史萊姆（純裝飾夥伴，隨 Poppo 表情一起歡呼或驚訝）
+        ctx.save();
+        const slimeX = w * 0.25;
+        const slimeY = groundY + 34;
+        const squish = Math.sin(timeSec * 4.2) * 0.06;
+        ctx.translate(slimeX, slimeY);
+        ctx.scale(1 + squish, 1 - squish);
+
+        const slimeGrad = ctx.createRadialGradient(-6, -16, 4, 0, -10, 26);
+        slimeGrad.addColorStop(0, "#c8f29b");
+        slimeGrad.addColorStop(1, "#6fb856");
+        ctx.fillStyle = slimeGrad;
+        ctx.strokeStyle = "#355926";
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(-20, 4);
+        ctx.bezierCurveTo(-22, -16, -10, -26, 0, -26);
+        ctx.bezierCurveTo(10, -26, 22, -16, 20, 4);
+        ctx.quadraticCurveTo(0, 8, -20, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 小史萊姆頭上的木頭面具裝飾
+        ctx.fillStyle = "#d99b66";
+        ctx.beginPath();
+        ctx.ellipse(9, -22, 8, 5.5, 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 小史萊姆可愛豆豆眼與表情
+        ctx.fillStyle = "#243b19";
+        ctx.beginPath();
+        ctx.arc(-6, -10, 2.2, 0, Math.PI * 2);
+        ctx.arc(5, -10, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#243b19";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        if (mood === "happy") {
+          ctx.arc(-0.5, -6, 3.5, 0, Math.PI);
+        } else {
+          ctx.arc(-0.5, -4, 2.6, Math.PI, 0);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // 8. 漂浮林間螢火光點
+        ctx.save();
+        for (let i = 0; i < 14; i++) {
+          const fx = ((i * 197 + timeSec * 14) % w);
+          const fy = ((i * 131 + Math.sin(timeSec * 1.5 + i) * 28 + h) % (h * 0.85));
+          const alpha = 0.25 + 0.35 * Math.sin(timeSec * 2.4 + i);
+          ctx.fillStyle = `rgba(255, 248, 175, ${alpha.toFixed(2)})`;
+          ctx.beginPath();
+          ctx.arc(fx, fy, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      /* ---------------------------------------------------------------------
+         5. 3D 立體幾何圖形精準繪製模組（初階 & 高階・小一至小二高辨識度版本）
+            - 同類立體圖形（各款角柱、各款角錐、曲面立體）採用相近顏色家族，
+              避免學生靠顏色猜答案。
+            - 改用開揚四分之三側面透視（ry = rx * 0.56），並以半透明側面呈現，
+              讓底面多邊形完整可見、加粗輪廓線、放大底面頂點標記、清楚虛線繪出遮擋邊！
+         --------------------------------------------------------------------- */
+      const PRISM_COLOR_FAMILY = { top: "#7bdff2", frontA: "#38b6ff", frontB: "#0096c7", sideC: "#0077b6" };
+      const PYRAMID_COLOR_FAMILY = { top: "#ffd166", frontA: "#f8961e", frontB: "#f3722c", sideC: "#d95d1e" };
+      const CURVED_COLOR_FAMILY = { top: "#95d5b2", frontA: "#52b788", frontB: "#40916c", sideC: "#2d6a4f" };
+
+      const SHAPE_STYLES = {
+        "角柱":   { sides: 4, kind: "prism",    ...PRISM_COLOR_FAMILY },
+        "角錐":   { sides: 4, kind: "pyramid",  ...PYRAMID_COLOR_FAMILY },
+        "三角柱": { sides: 3, kind: "prism",    ...PRISM_COLOR_FAMILY },
+        "四角柱": { sides: 4, kind: "prism",    ...PRISM_COLOR_FAMILY },
+        "五角柱": { sides: 5, kind: "prism",    ...PRISM_COLOR_FAMILY },
+        "六角柱": { sides: 6, kind: "prism",    ...PRISM_COLOR_FAMILY },
+        "三角錐": { sides: 3, kind: "pyramid",  ...PYRAMID_COLOR_FAMILY },
+        "四角錐": { sides: 4, kind: "pyramid",  ...PYRAMID_COLOR_FAMILY },
+        "五角錐": { sides: 5, kind: "pyramid",  ...PYRAMID_COLOR_FAMILY },
+        "六角錐": { sides: 6, kind: "pyramid",  ...PYRAMID_COLOR_FAMILY },
+        "圓柱":   { sides: 0, kind: "cylinder", ...CURVED_COLOR_FAMILY },
+        "圓錐":   { sides: 0, kind: "cone",     ...CURVED_COLOR_FAMILY },
+        "球":     { sides: 0, kind: "sphere",   ...CURVED_COLOR_FAMILY }
+      };
+
+      // 為 3、4、5、6 邊形選用開揚的四分之三側面旋轉角，避免四角柱變成正面長方形或五角柱像立方體
+      function get34PerspectiveAngle(sides) {
+        if (sides === 3) return -0.35;
+        if (sides === 4) return -0.44;
+        if (sides === 5) return -0.32;
+        return -0.26;
+      }
+
+      function getPolygonRingPoints(cx, cy, rx, ry, sides, startAngle) {
+        const pts = [];
+        for (let i = 0; i < sides; i++) {
+          const ang = startAngle + (i * Math.PI * 2) / sides;
+          pts.push({
+            x: cx + Math.cos(ang) * rx,
+            y: cy + Math.sin(ang) * ry
+          });
+        }
+        return pts;
+      }
+
+      function drawVertexMarker(ctx, x, y, r, fill) {
+        ctx.save();
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function draw3DSolidCard(ctx, shapeName, x, y, radius, feedbackState, customSides, isProtected) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        if (isProtected && feedbackState === "none") {
+          ctx.globalAlpha = 0.85;
+        }
+
+        // 外層圓角羊皮紙背景卡片（隨卡片縮小調整圓角與邊框比例）
+        let cardBg = "rgba(255, 252, 240, 0.95)";
+        let cardBorder = "#7c4d25";
+        if (feedbackState === "correct") {
+          cardBg = "rgba(212, 255, 218, 0.97)";
+          cardBorder = "#238c38";
+        } else if (feedbackState === "wrong") {
+          cardBg = "rgba(255, 218, 214, 0.97)";
+          cardBorder = "#cc2929";
+        }
+
+        const cornerR = Math.max(16, radius * 0.30);
+        ctx.fillStyle = cardBg;
+        ctx.strokeStyle = cardBorder;
+        ctx.lineWidth = Math.max(3.5, radius * 0.065);
+        ctx.shadowColor = "rgba(0, 0, 0, 0.26)";
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+
+        ctx.beginPath();
+        ctx.roundRect(-radius, -radius, radius * 2, radius * 2, cornerR);
+        ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.stroke();
+
+        const baseSpec = SHAPE_STYLES[shapeName] || SHAPE_STYLES["角柱"];
+        const spec = customSides ? { ...baseSpec, sides: customSides } : baseSpec;
+        // 提高立體圖形在卡片內的佔比，確保卡片收細後幾何邊數依然一目了然
+        const s = radius * 0.90;
+
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+
+        if (spec.kind === "prism") {
+          // 開揚四分之三側面透視角柱：底面與頂面多邊形皆完整清晰可見
+          const n = spec.sides;
+          const rx = s * 0.72;
+          const ry = s * 0.40; // 開揚傾角，不壓扁
+          const topY = -s * 0.40;
+          const botY = s * 0.40;
+          const startAng = get34PerspectiveAngle(n);
+
+          const topPts = getPolygonRingPoints(0, topY, rx, ry, n, startAng);
+          const botPts = getPolygonRingPoints(0, botY, rx, ry, n, startAng);
+
+          // 1. 先繪製完整底面多邊形（讓底面有幾條邊一目了然）
+          ctx.save();
+          ctx.fillStyle = spec.top;
+          ctx.globalAlpha = 0.85;
+          ctx.beginPath();
+          botPts.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+
+          // 2. 背面被遮擋的底邊與側棱用清楚虛線繪出
+          ctx.save();
+          ctx.strokeStyle = "#1f2937";
+          ctx.lineWidth = 2.8;
+          ctx.setLineDash([7, 6]);
+          for (let i = 0; i < n; i++) {
+            const next = (i + 1) % n;
+            const midY = (botPts[i].y + botPts[next].y) * 0.5;
+            if (midY < botY) {
+              ctx.beginPath();
+              ctx.moveTo(botPts[i].x, botPts[i].y);
+              ctx.lineTo(botPts[next].x, botPts[next].y);
+              ctx.stroke();
+            }
+            if (botPts[i].y < botY - ry * 0.15) {
+              ctx.beginPath();
+              ctx.moveTo(topPts[i].x, topPts[i].y);
+              ctx.lineTo(botPts[i].x, botPts[i].y);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+
+          // 3. 半透明繪製朝前側面，不完全遮蓋底面多邊形
+          const faceColors = [spec.frontA, spec.frontB, spec.sideC];
+          let colorIdx = 0;
+          for (let i = 0; i < n; i++) {
+            const next = (i + 1) % n;
+            const midY = (botPts[i].y + botPts[next].y) * 0.5;
+            if (midY >= botY - ry * 0.05) {
+              ctx.save();
+              ctx.globalAlpha = 0.44;
+              ctx.fillStyle = faceColors[colorIdx % faceColors.length];
+              ctx.beginPath();
+              ctx.moveTo(topPts[i].x, topPts[i].y);
+              ctx.lineTo(topPts[next].x, topPts[next].y);
+              ctx.lineTo(botPts[next].x, botPts[next].y);
+              ctx.lineTo(botPts[i].x, botPts[i].y);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+
+              // 加粗可見前側邊與底面實線邊
+              ctx.strokeStyle = "#141414";
+              ctx.lineWidth = 3.5;
+              ctx.beginPath();
+              ctx.moveTo(botPts[i].x, botPts[i].y);
+              ctx.lineTo(botPts[next].x, botPts[next].y);
+              ctx.moveTo(topPts[i].x, topPts[i].y);
+              ctx.lineTo(botPts[i].x, botPts[i].y);
+              ctx.moveTo(topPts[next].x, topPts[next].y);
+              ctx.lineTo(botPts[next].x, botPts[next].y);
+              ctx.stroke();
+              colorIdx++;
+            }
+          }
+
+          // 4. 繪製頂面多邊形與加粗外框
+          ctx.save();
+          ctx.globalAlpha = 0.72;
+          ctx.fillStyle = spec.top;
+          ctx.beginPath();
+          topPts.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+
+          ctx.strokeStyle = "#141414";
+          ctx.lineWidth = 3.6;
+          ctx.beginPath();
+          topPts.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.closePath();
+          ctx.stroke();
+
+          // 5. 放大底面與頂面頂點標記，讓學生輕鬆數出 3 / 4 / 5 / 6 個角
+          const dotR = Math.max(4.5, radius * 0.068);
+          botPts.forEach((p) => drawVertexMarker(ctx, p.x, p.y, dotR, "#0d1b2a"));
+          topPts.forEach((p) => drawVertexMarker(ctx, p.x, p.y, dotR * 0.85, "#0d1b2a"));
+
+        } else if (spec.kind === "pyramid") {
+          // 開揚四分之三側面透視角錐：底面多邊形完整可見，絕不畫成不透明帳幕！
+          const n = spec.sides;
+          const rx = s * 0.78;
+          const ry = s * 0.45; // 大傾角展開底面，讓 3/4/5/6 邊底面清晰可數
+          const apex = { x: -s * 0.08, y: -s * 0.62 }; // 略偏左的四分之三視角錐頂
+          const baseY = s * 0.36;
+          const startAng = get34PerspectiveAngle(n);
+
+          const basePts = getPolygonRingPoints(0, baseY, rx, ry, n, startAng);
+
+          // 1. 完整繪製底面多邊形（實色填充，讓底面邊數成為視覺主角）
+          ctx.fillStyle = spec.top;
+          ctx.beginPath();
+          basePts.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.closePath();
+          ctx.fill();
+
+          // 2. 底面所有邊：前方用加粗實線，背面被側面遮擋的邊用清楚虛線
+          for (let i = 0; i < n; i++) {
+            const next = (i + 1) % n;
+            const midY = (basePts[i].y + basePts[next].y) * 0.5;
+            ctx.save();
+            if (midY < baseY - ry * 0.05) {
+              ctx.strokeStyle = "#262626";
+              ctx.lineWidth = 3.0;
+              ctx.setLineDash([7, 6]);
+            } else {
+              ctx.strokeStyle = "#141414";
+              ctx.lineWidth = 3.8;
+            }
+            ctx.beginPath();
+            ctx.moveTo(basePts[i].x, basePts[i].y);
+            ctx.lineTo(basePts[next].x, basePts[next].y);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // 3. 背面側棱用清楚虛線繪出
+          ctx.save();
+          ctx.strokeStyle = "#262626";
+          ctx.lineWidth = 2.8;
+          ctx.setLineDash([7, 6]);
+          basePts.forEach((p) => {
+            if (p.y < baseY - ry * 0.12) {
+              ctx.beginPath();
+              ctx.moveTo(apex.x, apex.y);
+              ctx.lineTo(p.x, p.y);
+              ctx.stroke();
+            }
+          });
+          ctx.restore();
+
+          // 4. 半透明繪製朝前三角形側面（alpha = 0.42），完整透出底面多邊形與頂點
+          const faceColors = [spec.frontA, spec.frontB, spec.sideC];
+          let colorIdx = 0;
+          for (let i = 0; i < n; i++) {
+            const next = (i + 1) % n;
+            const midY = (basePts[i].y + basePts[next].y) * 0.5;
+            if (midY >= baseY - ry * 0.08) {
+              ctx.save();
+              ctx.globalAlpha = 0.42;
+              ctx.fillStyle = faceColors[colorIdx % faceColors.length];
+              ctx.beginPath();
+              ctx.moveTo(apex.x, apex.y);
+              ctx.lineTo(basePts[i].x, basePts[i].y);
+              ctx.lineTo(basePts[next].x, basePts[next].y);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+              colorIdx++;
+            }
+          }
+
+          // 5. 加粗繪製所有可見實線側棱（包含最左與最右外輪廓棱）
+          let leftmostPt = basePts[0];
+          let rightmostPt = basePts[0];
+          basePts.forEach((p) => {
+            if (p.x < leftmostPt.x) leftmostPt = p;
+            if (p.x > rightmostPt.x) rightmostPt = p;
+          });
+
+          ctx.strokeStyle = "#141414";
+          ctx.lineWidth = 3.6;
+          basePts.forEach((p) => {
+            if (p.y >= baseY - ry * 0.12 || p === leftmostPt || p === rightmostPt) {
+              ctx.beginPath();
+              ctx.moveTo(apex.x, apex.y);
+              ctx.lineTo(p.x, p.y);
+              ctx.stroke();
+            }
+          });
+
+          // 6. 放大底面頂點標記與錐頂標記，一眼數清底面邊數
+          const dotR = Math.max(5.0, radius * 0.075);
+          basePts.forEach((p) => drawVertexMarker(ctx, p.x, p.y, dotR, "#1b1b1b"));
+          drawVertexMarker(ctx, apex.x, apex.y, dotR * 0.85, "#b81d13");
+
+        } else if (spec.kind === "cylinder") {
+          // 圓柱體（加大尺寸，上下兩個清晰圓面＋立體圓柱身）
+          const rx = s * 0.68;
+          const ry = s * 0.30;
+          const topY = -s * 0.44;
+          const botY = s * 0.44;
+
+          // 先畫完整底圓（讓學生清楚看到上下兩個圓面）
+          ctx.fillStyle = spec.top;
+          ctx.beginPath();
+          ctx.ellipse(0, botY, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          const bodyGrad = ctx.createLinearGradient(-rx, 0, rx, 0);
+          bodyGrad.addColorStop(0, "rgba(64, 145, 108, 0.68)");
+          bodyGrad.addColorStop(0.35, "rgba(149, 213, 178, 0.62)");
+          bodyGrad.addColorStop(1, "rgba(45, 106, 79, 0.72)");
+
+          ctx.fillStyle = bodyGrad;
+          ctx.strokeStyle = "#141414";
+          ctx.lineWidth = 3.6;
+          ctx.beginPath();
+          ctx.moveTo(-rx, topY);
+          ctx.lineTo(-rx, botY);
+          ctx.ellipse(0, botY, rx, ry, 0, Math.PI, 0, true);
+          ctx.lineTo(rx, topY);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // 底面背面清楚虛線弧
+          ctx.save();
+          ctx.setLineDash([7, 6]);
+          ctx.strokeStyle = "#262626";
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.ellipse(0, botY, rx, ry, 0, Math.PI, 0, false);
+          ctx.stroke();
+          ctx.restore();
+
+          // 頂面完整圓形
+          ctx.fillStyle = spec.top;
+          ctx.strokeStyle = "#141414";
+          ctx.lineWidth = 3.6;
+          ctx.beginPath();
+          ctx.ellipse(0, topY, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+        } else if (spec.kind === "cone") {
+          // 圓錐體（加大尺寸，清晰圓底與尖銳錐頂）
+          const rx = s * 0.74;
+          const ry = s * 0.33;
+          const apexY = -s * 0.62;
+          const botY = s * 0.44;
+
+          // 完整底圓填充
+          ctx.fillStyle = spec.top;
+          ctx.beginPath();
+          ctx.ellipse(0, botY, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          const coneGrad = ctx.createLinearGradient(-rx, 0, rx, 0);
+          coneGrad.addColorStop(0, "rgba(64, 145, 108, 0.68)");
+          coneGrad.addColorStop(0.38, "rgba(149, 213, 178, 0.60)");
+          coneGrad.addColorStop(1, "rgba(45, 106, 79, 0.72)");
+
+          ctx.fillStyle = coneGrad;
+          ctx.strokeStyle = "#141414";
+          ctx.lineWidth = 3.6;
+          ctx.beginPath();
+          ctx.moveTo(0, apexY);
+          ctx.lineTo(-rx, botY);
+          ctx.ellipse(0, botY, rx, ry, 0, Math.PI, 0, true);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // 底面背面虛線弧
+          ctx.save();
+          ctx.setLineDash([7, 6]);
+          ctx.strokeStyle = "#262626";
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.ellipse(0, botY, rx, ry, 0, Math.PI, 0, false);
+          ctx.stroke();
+          ctx.restore();
+
+          // 錐尖強調點
+          drawVertexMarker(ctx, 0, apexY, Math.max(4.5, radius * 0.065), "#1b4332");
+
+        } else if (spec.kind === "sphere") {
+          // 球體（大圓球造型＋立體高光與赤道透視線）
+          const r = s * 0.76;
+          const sphGrad = ctx.createRadialGradient(-r * 0.34, -r * 0.34, r * 0.08, 0, 0, r);
+          sphGrad.addColorStop(0, "#d8f3dc");
+          sphGrad.addColorStop(0.45, spec.frontA);
+          sphGrad.addColorStop(1, spec.sideC);
+
+          ctx.fillStyle = sphGrad;
+          ctx.strokeStyle = "#141414";
+          ctx.lineWidth = 3.8;
+          ctx.beginPath();
+          ctx.arc(0, 0, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // 立體赤道曲線增強圓球立體感
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+          ctx.lineWidth = 3.0;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, r, r * 0.32, 0, 0, Math.PI);
+          ctx.stroke();
+
+          ctx.setLineDash([7, 6]);
+          ctx.strokeStyle = "rgba(20, 20, 20, 0.45)";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, r, r * 0.32, 0, Math.PI, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      /* ---------------------------------------------------------------------
+         6. 視像鏡頭體感追蹤模組（WebRTC ＋ 連續兩幀畫面差異即時追蹤）
+            - 預覽視窗固定於左下閒置位置，絕不遮擋右側三條軌道上的立體圖形
+            - 改用連續兩幀畫面差異（Frame Differencing）即時偵測玩家頭部與手部動作，
+              僅作輕微平滑、不設過嚴每幀移動上限；過濾全畫面燈光閃爍與最邊緣旁人走動
+         --------------------------------------------------------------------- */
+      const CameraTracker = (function () {
+        const video = document.getElementById("webcamVideo");
+        const offCanvas = document.createElement("canvas");
+        const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
+        offCanvas.width = 96;
+        offCanvas.height = 72;
+
+        let stream = null;
+        let active = false;
+        let prevGray = null;
+        let rawVisX = 0.5;
+        let rawVisY = 0.5;
+        let targetNormX = 0.5;
+        let targetNormY = 0.5;
+        let hasSubject = false;
+        let confidence = 0;
+
+        async function start() {
+          if (active && stream) return true;
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            return false;
+          }
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: "user",
+                width: { ideal: 320 },
+                height: { ideal: 240 }
+              },
+              audio: false
+            });
+            video.srcObject = stream;
+            await video.play();
+            active = true;
+            prevGray = null;
+            rawVisX = 0.5;
+            rawVisY = 0.5;
+            targetNormX = 0.5;
+            targetNormY = 0.5;
+            hasSubject = false;
+            confidence = 0;
+            return true;
+          } catch (err) {
+            stop();
+            return false;
+          }
+        }
+
+        function stop() {
+          active = false;
+          prevGray = null;
+          hasSubject = false;
+          confidence = 0;
+          if (stream) {
+            stream.getTracks().forEach((t) => t.stop());
+            stream = null;
+          }
+          video.srcObject = null;
+        }
+
+        function update() {
+          if (!active || video.readyState < 2) return null;
+
+          const w = offCanvas.width;
+          const h = offCanvas.height;
+
+          // 水平鏡像繪製到分析畫布
+          offCtx.save();
+          offCtx.translate(w, 0);
+          offCtx.scale(-1, 1);
+          offCtx.drawImage(video, 0, 0, w, h);
+          offCtx.restore();
+
+          const imgData = offCtx.getImageData(0, 0, w, h).data;
+          const currGray = new Float32Array(w * h);
+
+          for (let i = 0; i < w * h; i++) {
+            const p = i * 4;
+            currGray[i] = imgData[p] * 0.299 + imgData[p + 1] * 0.587 + imgData[p + 2] * 0.114;
+          }
+
+          if (!prevGray) {
+            prevGray = currGray;
+            return null;
+          }
+
+          // 1. 濾除投影機或教室燈光全畫面閃爍（全畫面絕大部分像素同時劇烈變化）
+          let totalAbsDiff = 0;
+          let globalChangedCount = 0;
+          for (let i = 0; i < w * h; i++) {
+            const d = Math.abs(currGray[i] - prevGray[i]);
+            totalAbsDiff += d;
+            if (d > 22) globalChangedCount++;
+          }
+          const avgDiff = totalAbsDiff / (w * h);
+          const changedRatio = globalChangedCount / (w * h);
+          if (avgDiff > 38 || changedRatio > 0.65) {
+            prevGray = currGray;
+            confidence *= 0.85;
+            return { x: targetNormX, y: targetNormY, hasMotion: hasSubject, strength: confidence };
+          }
+
+          // 2. 連續兩幀差異計算：同時偵測玩家頭部與手部動作，僅濾除最邊緣旁人走動
+          let sumX = 0;
+          let sumY = 0;
+          let totalWeight = 0;
+          let activePixels = 0;
+
+          for (let y = 0; y < h; y++) {
+            const ny = y / h;
+            if (ny < 0.04 || ny > 0.96) continue;
+            for (let x = 0; x < w; x++) {
+              const nx = x / w;
+              // 僅忽略左右最邊緣 6% 窄帶（旁人經過邊緣），完整保留玩家伸手與搖頭範圍
+              if (nx < 0.06 || nx > 0.94) continue;
+
+              const idx = y * w + x;
+              const diff = Math.abs(currGray[idx] - prevGray[idx]);
+
+              if (diff > 20) {
+                // 平方加權讓最明顯移動的頭或手成為重心，標記緊貼動作部位
+                const excess = Math.min(diff - 18, 70);
+                const weight = excess * excess;
+                sumX += nx * weight;
+                sumY += ny * weight;
+                totalWeight += weight;
+                activePixels++;
+              }
+            }
+          }
+
+          // 更新上一幀為目前畫面
+          prevGray = currGray;
+
+          if (activePixels >= 12 && totalWeight > 900) {
+            const rawX = sumX / totalWeight;
+            const rawY = sumY / totalWeight;
+
+            // 預覽視窗標記使用緊貼實際移動頭／手的輕微平滑座標
+            rawVisX += (rawX - rawVisX) * 0.55;
+            rawVisY += (rawY - rawVisY) * 0.55;
+
+            // 遊戲角色座標作適度橫向展開映射，方便學生輕鬆覆蓋三條軌道
+            const mappedX = Math.max(0.04, Math.min(0.96, 0.5 + (rawX - 0.5) * 1.28));
+            const mappedY = Math.max(0.08, Math.min(0.92, 0.5 + (rawY - 0.5) * 1.22));
+
+            // 僅作輕微平滑，不設過嚴每幀移動上限，確保即時跟隨頭或手
+            targetNormX += (mappedX - targetNormX) * 0.45;
+            targetNormY += (mappedY - targetNormY) * 0.45;
+
+            hasSubject = true;
+            confidence = Math.min(1, 0.55 + activePixels / 180);
+          } else {
+            // 玩家短暫停頓時保持在最後偵測到的頭／手位置，不會彈回中央空白處
+            confidence *= 0.94;
+            if (confidence < 0.08) {
+              hasSubject = false;
+            }
+          }
+
+          return {
+            x: targetNormX,
+            y: targetNormY,
+            hasMotion: hasSubject,
+            strength: confidence
+          };
+        }
+
+        function drawOverlay(ctx, canvasW, canvasH) {
+          if (!active || video.readyState < 2) return;
+
+          // 位於左下角閒置位置，預留安全邊距，絕不遮擋任何軌道
+          const pipW = Math.round(Math.max(145, Math.min(205, canvasW * 0.165)));
+          const pipH = Math.round(pipW * 0.75);
+          const pipX = 18;
+          const pipY = canvasH - pipH - 76;
+
+          ctx.save();
+          ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 4;
+          ctx.fillStyle = "#3b230e";
+          ctx.beginPath();
+          ctx.roundRect(pipX - 4, pipY - 4, pipW + 8, pipH + 8, 16);
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          ctx.beginPath();
+          ctx.roundRect(pipX, pipY, pipW, pipH, 12);
+          ctx.clip();
+
+          ctx.save();
+          ctx.translate(pipX + pipW, pipY);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, pipW, pipH);
+          ctx.restore();
+
+          // 追蹤標記緊貼正在移動的頭部或手部位置
+          if (hasSubject) {
+            const mx = pipX + rawVisX * pipW;
+            const my = pipY + rawVisY * pipH;
+            ctx.strokeStyle = "#ffe066";
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.arc(mx, my, 13, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = "rgba(255, 224, 102, 0.35)";
+            ctx.beginPath();
+            ctx.arc(mx, my, 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.fillStyle = "rgba(32, 48, 24, 0.82)";
+          ctx.fillRect(pipX, pipY + pipH - 22, pipW, 22);
+          ctx.fillStyle = "#fffbe6";
+          ctx.font = "bold 12px 'PingFang HK', 'Microsoft JhengHei', sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("頭部／手部體感預覽", pipX + pipW * 0.5, pipY + pipH - 7);
+
+          ctx.restore();
+        }
+
+        return {
+          start,
+          stop,
+          update,
+          drawOverlay,
+          isActive: () => active
+        };
+      })();
+
+      /* ---------------------------------------------------------------------
+         7. 遊戲主狀態與核心邏輯
+         --------------------------------------------------------------------- */
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const introPortraitCanvas = document.getElementById("introPortraitCanvas");
+      const introPortraitCtx = introPortraitCanvas.getContext("2d");
+
+      // UI 元素參照
+      const introScreen = document.getElementById("introScreen");
+      const levelScreen = document.getElementById("levelScreen");
+      const countdownOverlay = document.getElementById("countdownOverlay");
+      const countdownStatusTitle = document.getElementById("countdownStatusTitle");
+      const countdownNumberText = document.getElementById("countdownNumberText");
+      const pauseOverlay = document.getElementById("pauseOverlay");
+      const hudLayer = document.getElementById("hudLayer");
+      const resultScreen = document.getElementById("resultScreen");
+
+      const hudLevelTag = document.getElementById("hudLevelTag");
+      const hudScore = document.getElementById("hudScore");
+      const hudTargetName = document.getElementById("hudTargetName");
+      const hudTimerBox = document.getElementById("hudTimerBox");
+      const hudTimer = document.getElementById("hudTimer");
+      const controlStatusText = document.getElementById("controlStatusText");
+      const btnToggleSound = document.getElementById("btnToggleSound");
+      const btnPrefCameraIntro = document.getElementById("btnPrefCameraIntro");
+      const btnPrefCameraLevel = document.getElementById("btnPrefCameraLevel");
+
+      // 遊戲狀態變數
+      const GAME_DURATION = 45;
+      let screenState = "intro"; // 'intro' | 'level' | 'preparing' | 'countdown' | 'playing' | 'result'
+      let isPaused = false;
+      let cameraPrefEnabled = true; // 開始前可選擇開啟或關閉鏡頭
+      let currentLevel = "beginner";
+      let score = 0;
+      let correctCount = 0;
+      let wrongCount = 0;
+      let timeLeft = GAME_DURATION;
+      let countdownRemaining = 3;
+      let lastCountdownDigit = 4;
+      let lastTimestamp = 0;
+      let globalTime = 0;
+      let lastTickSecond = -1;
+
+      // 控制模式：'camera' 或 'manual'
+      let controlMode = "camera";
+      let cameraFallbackReason = "";
+
+      // 玩家角色 Poppo 狀態
+      const poppo = {
+        x: 300,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 52,
+        mood: "normal", // 'normal' | 'happy' | 'hurt'
+        moodTimer: 0
+      };
+
+      // 題目與 3 條垂直軌道立體物件
+      let targetShape = "";
+      let trackShapes = [];
+      let roundCooldown = 0;      // 碰撞後的冷卻時間（約 1.75 秒）
+      let spawnInvulnTimer = 0;   // 新一題出現後的短暫無敵／不計碰撞時間（第一題 2.0 秒，其餘 1.4 秒）
+      let floatingPopups = [];    // +2 / -1 浮動文字特效
+
+      // 鍵盤與指標（滑鼠／觸控）輸入狀態
+      const keysDown = {};
+      const pointer = {
+        active: false,
+        x: 0,
+        y: 0
+      };
+
+      /* ---------------------------------------------------------------------
+         8. 畫布自適應縮放與 3 條垂直軌道位置計算（收細圖形卡片，留足軌道間閃避空隙）
+         --------------------------------------------------------------------- */
+      function getTrackXPositions(w) {
+        // 預留左側給 Poppo 與左下鏡頭預覽，三條軌道分布於中右區且彼此間距寬裕
+        return [w * 0.39, w * 0.62, w * 0.85];
+      }
+
+      function getShapeCardRadius(w, h, level) {
+        const trackXs = getTrackXPositions(w);
+        const trackGap = trackXs[1] - trackXs[0];
+        if (level === "beginner") {
+          // 收細為約原本較小版本的 1.25 倍，確保相鄰軌道之間有充足空隙可閃避
+          const desired = Math.max(52, Math.min(w, h) * 0.084);
+          return Math.min(desired, trackGap * 0.25);
+        } else {
+          // 高階圖形同步收細並保持清晰，讓角色可靈活穿梭於軌道之間
+          const desired = Math.max(48, Math.min(w, h) * 0.076);
+          return Math.min(desired, trackGap * 0.23);
+        }
+      }
+
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        poppo.radius = Math.max(36, Math.min(w, h) * 0.058);
+        poppo.x = Math.max(poppo.radius + 12, Math.min(w - poppo.radius - 12, poppo.x));
+        poppo.y = Math.max(poppo.radius + 95, Math.min(h - poppo.radius - 76, poppo.y));
+
+        const trackXs = getTrackXPositions(w);
+        const shapeRadius = getShapeCardRadius(w, h, currentLevel);
+        trackShapes.forEach((item, idx) => {
+          item.x = trackXs[idx];
+          item.radius = shapeRadius;
+          item.topLimit = Math.max(138, h * 0.22);
+          item.botLimit = h - Math.max(82, h * 0.12);
+        });
+      }
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      /* ---------------------------------------------------------------------
+         9. 出題與 3 條垂直軌道生成邏輯
+            - 初階「角柱」「角錐」每次底面邊數在 3 至 6 邊之間隨機變化
+            - 高階干擾項優先抽外形接近的同類／相近角柱或角錐
+            - 新題出現後啟動短暫無敵保護，避免衝力立即誤碰
+         --------------------------------------------------------------------- */
+      function getRandomPolySides() {
+        return 3 + Math.floor(Math.random() * 4); // 3, 4, 5, 6 邊隨機
+      }
+
+      function pickAdvancedDistractors(target) {
+        let primaryPool = [];
+        let secondaryPool = [];
+
+        if (PRISM_SHAPES.includes(target)) {
+          // 目標是某款角柱時，優先配其他角柱，其次配角錐
+          primaryPool = PRISM_SHAPES.filter((s) => s !== target);
+          secondaryPool = [...PYRAMID_SHAPES];
+        } else if (PYRAMID_SHAPES.includes(target)) {
+          // 目標是某款角錐時，優先配其他角錐，其次配角柱
+          primaryPool = PYRAMID_SHAPES.filter((s) => s !== target);
+          secondaryPool = [...PRISM_SHAPES];
+        } else {
+          // 目標是圓柱、圓錐或球時，優先配其他曲面立體
+          primaryPool = CURVED_SHAPES.filter((s) => s !== target);
+          secondaryPool = ["三角柱", "三角錐"];
+        }
+
+        shuffleArray(primaryPool);
+        shuffleArray(secondaryPool);
+
+        // 80% 機率兩個干擾項皆取自最接近外形組（如兩款其他角柱），20% 混入一款相近角錐／角柱
+        const picked = [];
+        if (primaryPool.length >= 2 && Math.random() < 0.8) {
+          picked.push(primaryPool[0], primaryPool[1]);
+        } else {
+          if (primaryPool.length > 0) picked.push(primaryPool[0]);
+          if (secondaryPool.length > 0) picked.push(secondaryPool[0]);
+          if (picked.length < 2 && primaryPool.length > 1) picked.push(primaryPool[1]);
+        }
+        return picked;
+      }
+
+      function spawnNextQuestion(isFirstQuestion = false) {
+        const pool = SHAPE_POOLS[currentLevel];
+        // 隨機選出本題正確答案（盡量不與上一題完全重複）
+        let chosen = pool[Math.floor(Math.random() * pool.length)];
+        if (pool.length > 1 && chosen === targetShape) {
+          const others = pool.filter((s) => s !== targetShape);
+          chosen = others[Math.floor(Math.random() * others.length)];
+        }
+        targetShape = chosen;
+        hudTargetName.textContent = targetShape;
+
+        // 選出 2 個互不相同且不等於正確答案的干擾項
+        let distractors = [];
+        if (currentLevel === "advanced") {
+          distractors = pickAdvancedDistractors(targetShape);
+        } else {
+          const distractorPool = pool.filter((s) => s !== targetShape);
+          shuffleArray(distractorPool);
+          distractors = [distractorPool[0], distractorPool[1]];
+        }
+
+        const roundNames = [targetShape, distractors[0], distractors[1]];
+        shuffleArray(roundNames);
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const trackXs = getTrackXPositions(w);
+        const shapeRadius = getShapeCardRadius(w, h, currentLevel);
+
+        const topLimit = Math.max(138, h * 0.22);
+        const botLimit = h - Math.max(82, h * 0.12);
+
+        // 消除出新題時的殘餘慣性速度，避免角色衝進新圖形
+        poppo.vx *= 0.15;
+        poppo.vy *= 0.15;
+
+        // 第一題無敵時間加長至 2.0 秒，其餘新題為 1.4 秒
+        spawnInvulnTimer = isFirstQuestion ? 2.0 : 1.4;
+
+        // 將所有新立體安排在遠離 Poppo 目前垂直位置的一端，並朝遠離 Poppo 的方向移動
+        const poppoInUpperHalf = poppo.y < h * 0.5;
+
+        trackShapes = roundNames.map((name, idx) => {
+          const tx = trackXs[idx];
+          const stagger = idx * Math.min(28, (botLimit - topLimit) * 0.08);
+          let startY = poppoInUpperHalf
+            ? (botLimit - shapeRadius - stagger)
+            : (topLimit + shapeRadius + stagger);
+
+          // 雙重保險：確保出生點與 Poppo 中心距離遠大於可碰撞範圍
+          const safeClearance = poppo.radius + shapeRadius + 135;
+          if (Math.hypot(tx - poppo.x, startY - poppo.y) < safeClearance) {
+            startY = poppoInUpperHalf ? (botLimit - shapeRadius) : (topLimit + shapeRadius);
+          }
+
+          // 初階滑動速度放慢，讓六至七歲學生有充足時間看清楚
+          const levelSpeedBase = currentLevel === "beginner"
+            ? Math.max(82, h * 0.145)
+            : Math.max(112, h * 0.205);
+          const baseSpeed = levelSpeedBase * (0.9 + idx * 0.12);
+          const dir = poppoInUpperHalf ? -1 : 1;
+
+          // 初階「角柱」「角錐」每次隨機設定 3 至 6 邊
+          let customSides = null;
+          if (currentLevel === "beginner" && (name === "角柱" || name === "角錐")) {
+            customSides = getRandomPolySides();
+          }
+
+          return {
+            name,
+            customSides,
+            isCorrect: name === targetShape,
+            x: tx,
+            y: startY,
+            vy: baseSpeed * dir,
+            radius: shapeRadius,
+            topLimit,
+            botLimit,
+            feedback: "none" // 'none' | 'correct' | 'wrong'
+          };
+        });
+      }
+
+      function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      /* ---------------------------------------------------------------------
+         10. 開始遊戲流程（先處理鏡頭權限 -> 3-2-1 倒數 -> 出題與 45 秒計時）
+         --------------------------------------------------------------------- */
+      function syncCameraPrefButtons() {
+        const label = cameraPrefEnabled
+          ? "視像鏡頭體感：開啟（點擊切換）"
+          : "視像鏡頭體感：關閉・改用鍵盤／拖移（點擊切換）";
+        btnPrefCameraIntro.textContent = label;
+        btnPrefCameraLevel.textContent = label;
+        btnPrefCameraIntro.classList.toggle("cam-off", !cameraPrefEnabled);
+        btnPrefCameraLevel.classList.toggle("cam-off", !cameraPrefEnabled);
+      }
+
+      function toggleCameraPreference() {
+        SoundFX.click();
+        cameraPrefEnabled = !cameraPrefEnabled;
+        syncCameraPrefButtons();
+      }
+
+      async function prepareAndStartGame(levelKey) {
+        SoundFX.click();
+        currentLevel = levelKey;
+        score = 0;
+        correctCount = 0;
+        wrongCount = 0;
+        timeLeft = GAME_DURATION;
+        lastTickSecond = -1;
+        roundCooldown = 0;
+        spawnInvulnTimer = 0;
+        isPaused = false;
+        trackShapes = [];
+        floatingPopups = [];
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        poppo.x = w * 0.12;
+        poppo.y = h * 0.54;
+        poppo.vx = 0;
+        poppo.vy = 0;
+        poppo.mood = "normal";
+        poppo.moodTimer = 0;
+
+        hudLevelTag.textContent = LEVEL_NAMES[currentLevel];
+        hudScore.textContent = "0";
+        hudTargetName.textContent = "準備中...";
+        hudTimer.textContent = String(GAME_DURATION);
+        hudTimerBox.classList.remove("timer-urgent");
+
+        introScreen.classList.add("hidden");
+        levelScreen.classList.add("hidden");
+        resultScreen.classList.add("hidden");
+        pauseOverlay.classList.add("hidden");
+        hudLayer.classList.remove("hidden");
+
+        // 第一步：先完成鏡頭權限處理（成功或失敗並改為鍵盤／滑鼠／觸控）
+        screenState = "preparing";
+        countdownOverlay.classList.remove("hidden");
+        countdownStatusTitle.textContent = cameraPrefEnabled
+          ? "正在處理視像鏡頭權限，請稍候..."
+          : "已設定為鍵盤／滑鼠／觸控操作...";
+        countdownNumberText.textContent = "準備";
+
+        await setupControlBeforeCountdown();
+
+        // 第二步：鏡頭權限處理完畢後，進入 3-2-1 倒數，倒數結束才出題並計時
+        screenState = "countdown";
+        countdownRemaining = 3.0;
+        lastCountdownDigit = 4;
+        countdownStatusTitle.textContent = "準備出發！倒數結束後開始計時";
+      }
+
+      async function setupControlBeforeCountdown() {
+        if (!cameraPrefEnabled) {
+          CameraTracker.stop();
+          controlMode = "manual";
+          cameraFallbackReason = "（已選擇關閉鏡頭）";
+          updateControlStatusLabel();
+          return;
+        }
+
+        controlStatusText.textContent = "控制方式：正在啟動視像鏡頭體感...";
+        const ok = await CameraTracker.start();
+        if (ok) {
+          controlMode = "camera";
+          cameraFallbackReason = "";
+        } else {
+          controlMode = "manual";
+          cameraFallbackReason = window.location.protocol === "file:"
+            ? "（file:// 模式不支援鏡頭，已自動切換）"
+            : "（鏡頭未開啟，已自動切換）";
+        }
+        updateControlStatusLabel();
+      }
+
+      function beginActivePlayAfterCountdown() {
+        countdownOverlay.classList.add("hidden");
+        screenState = "playing";
+        timeLeft = GAME_DURATION;
+        poppo.vx = 0;
+        poppo.vy = 0;
+        SoundFX.countdownGo();
+        spawnNextQuestion(true);
+      }
+
+      function updateControlStatusLabel() {
+        if (controlMode === "camera" && CameraTracker.isActive()) {
+          controlStatusText.textContent = "控制方式：視像鏡頭體感（移動身體或頭部位置來控制）";
+        } else {
+          controlStatusText.textContent =
+            `控制方式：鍵盤（方向鍵／WASD）或 滑鼠／觸控拖移 ${cameraFallbackReason}`;
+        }
+      }
+
+      async function toggleControlMode() {
+        SoundFX.click();
+        if (controlMode === "camera") {
+          CameraTracker.stop();
+          controlMode = "manual";
+          cameraFallbackReason = "";
+          updateControlStatusLabel();
+        } else {
+          const ok = await CameraTracker.start();
+          if (ok) {
+            controlMode = "camera";
+            cameraFallbackReason = "";
+          } else {
+            controlMode = "manual";
+            cameraFallbackReason = window.location.protocol === "file:"
+              ? "（file:// 模式無法存取鏡頭，維持鍵盤／拖移）"
+              : "（無法存取鏡頭，維持鍵盤／滑鼠／觸控）";
+          }
+          updateControlStatusLabel();
+        }
+      }
+
+      function togglePauseGame() {
+        if (screenState !== "playing" && screenState !== "countdown") return;
+        SoundFX.click();
+        isPaused = !isPaused;
+        pointer.active = false;
+        if (isPaused) {
+          pauseOverlay.classList.remove("hidden");
+        } else {
+          pauseOverlay.classList.add("hidden");
+        }
+      }
+
+      function returnToLevelSelection() {
+        SoundFX.click();
+        isPaused = false;
+        pointer.active = false;
+        CameraTracker.stop();
+        hudLayer.classList.add("hidden");
+        countdownOverlay.classList.add("hidden");
+        pauseOverlay.classList.add("hidden");
+        resultScreen.classList.add("hidden");
+        levelScreen.classList.remove("hidden");
+        screenState = "level";
+      }
+
+      function endGame() {
+        screenState = "result";
+        isPaused = false;
+        CameraTracker.stop();
+        hudLayer.classList.add("hidden");
+        countdownOverlay.classList.add("hidden");
+        pauseOverlay.classList.add("hidden");
+        resultScreen.classList.remove("hidden");
+
+        SoundFX.finish();
+        document.getElementById("resultLevelLabel").textContent =
+          `${LEVEL_NAMES[currentLevel]}關卡總得分`;
+        document.getElementById("resultScore").textContent = String(score);
+        document.getElementById("resultCorrectCount").textContent = String(correctCount);
+        document.getElementById("resultWrongCount").textContent = String(wrongCount);
+
+        let comment = "";
+        if (score >= 20) {
+          comment = "太厲害了！你是森林裡的立體圖形大師！";
+        } else if (score >= 10) {
+          comment = "表現很棒！Poppo 成功收集了好多立體寶物！";
+        } else if (score >= 4) {
+          comment = "做得不錯！再多練習一次會更熟練喔！";
+        } else {
+          comment = "別氣餒！再試一次，Poppo 陪你一起挑戰！";
+        }
+        document.getElementById("resultComment").textContent = comment;
+      }
+
+      /* ---------------------------------------------------------------------
+         11. 角色移動、邊緣反彈與碰撞判定
+         --------------------------------------------------------------------- */
+      function updateGameplay(dt) {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // 1. 倒數計時（限時 45 秒，時間到即結束）
+        timeLeft -= dt;
+        if (timeLeft <= 0) {
+          timeLeft = 0;
+          hudTimer.textContent = "0";
+          endGame();
+          return;
+        }
+
+        const displaySec = Math.ceil(timeLeft);
+        hudTimer.textContent = String(displaySec);
+        if (displaySec <= 10) {
+          hudTimerBox.classList.add("timer-urgent");
+          if (displaySec <= 5 && displaySec !== lastTickSecond) {
+            lastTickSecond = displaySec;
+            SoundFX.tick();
+          }
+        }
+
+        // 2. 表情恢復計時
+        if (poppo.moodTimer > 0) {
+          poppo.moodTimer -= dt;
+          if (poppo.moodTimer <= 0) {
+            poppo.mood = "normal";
+          }
+        }
+
+        // 3. 更新 Poppo 速度（鏡頭偵測到頭或手移動時迅速移向目標位置）
+        const speedFactor = currentLevel === "beginner" ? 0.85 : 1.05;
+        const maxSpeed = Math.max(520, Math.min(w, h) * 1.15) * speedFactor;
+        const accel = maxSpeed * 7.2;
+
+        let usedCameraSteering = false;
+        if (controlMode === "camera" && CameraTracker.isActive()) {
+          const motion = CameraTracker.update();
+          // 新題無敵保護時間內，鏡頭不推動角色，避免倒數一結束或出新題就誤碰
+          if (motion && motion.hasMotion && spawnInvulnTimer <= 0) {
+            const targetX = motion.x * w;
+            const targetY = motion.y * h;
+            const dx = targetX - poppo.x;
+            const dy = targetY - poppo.y;
+            const steerGain = currentLevel === "beginner" ? 13.5 : 17.5;
+            poppo.vx += dx * steerGain * dt;
+            poppo.vy += dy * steerGain * dt;
+            usedCameraSteering = true;
+          }
+        }
+
+        // 鍵盤方向鍵 / WASD 控制
+        let ix = 0;
+        let iy = 0;
+        if (keysDown["ArrowLeft"] || keysDown["KeyA"]) ix -= 1;
+        if (keysDown["ArrowRight"] || keysDown["KeyD"]) ix += 1;
+        if (keysDown["ArrowUp"] || keysDown["KeyW"]) iy -= 1;
+        if (keysDown["ArrowDown"] || keysDown["KeyS"]) iy += 1;
+
+        if (ix !== 0 || iy !== 0) {
+          const len = Math.hypot(ix, iy);
+          poppo.vx += (ix / len) * accel * dt;
+          poppo.vy += (iy / len) * accel * dt;
+        } else if (pointer.active) {
+          // 滑鼠或觸控拖移跟隨
+          const dx = pointer.x - poppo.x;
+          const dy = pointer.y - poppo.y;
+          const dragGain = currentLevel === "beginner" ? 12.0 : 15.0;
+          poppo.vx += dx * dragGain * dt;
+          poppo.vy += dy * dragGain * dt;
+        } else if (!usedCameraSteering) {
+          poppo.vx *= Math.pow(0.03, dt);
+          poppo.vy *= Math.pow(0.03, dt);
+        }
+
+        // 速度阻尼與上限限制（保持敏捷追隨且不亂飄）
+        poppo.vx *= Math.pow(0.08, dt);
+        poppo.vy *= Math.pow(0.08, dt);
+        const speed = Math.hypot(poppo.vx, poppo.vy);
+        if (speed > maxSpeed) {
+          poppo.vx = (poppo.vx / speed) * maxSpeed;
+          poppo.vy = (poppo.vy / speed) * maxSpeed;
+        }
+
+        poppo.x += poppo.vx * dt;
+        poppo.y += poppo.vy * dt;
+
+        // 4. 碰到畫面邊緣反彈（底部預留安全邊距）
+        const minX = poppo.radius + 10;
+        const maxX = w - poppo.radius - 10;
+        const minY = poppo.radius + 92;
+        const maxY = h - poppo.radius - 72;
+
+        if (poppo.x < minX) {
+          poppo.x = minX;
+          poppo.vx = Math.abs(poppo.vx) * 0.72 + 65;
+        } else if (poppo.x > maxX) {
+          poppo.x = maxX;
+          poppo.vx = -Math.abs(poppo.vx) * 0.72 - 65;
+        }
+
+        if (poppo.y < minY) {
+          poppo.y = minY;
+          poppo.vy = Math.abs(poppo.vy) * 0.72 + 65;
+        } else if (poppo.y > maxY) {
+          poppo.y = maxY;
+          poppo.vy = -Math.abs(poppo.vy) * 0.72 - 65;
+        }
+
+        // 5. 新題出現後的短暫無敵／不計碰撞計時
+        if (spawnInvulnTimer > 0) {
+          spawnInvulnTimer = Math.max(0, spawnInvulnTimer - dt);
+        }
+
+        // 6. 碰撞後的冷卻處理（1.75 秒）與軌道滑動判定
+        if (roundCooldown > 0) {
+          roundCooldown -= dt;
+          if (roundCooldown <= 0) {
+            roundCooldown = 0;
+            spawnNextQuestion(false);
+          }
+        } else {
+          // 更新 3 條垂直軌道上滑動的立體圖形
+          for (let i = 0; i < trackShapes.length; i++) {
+            const item = trackShapes[i];
+            const nextY = item.y + item.vy * dt;
+
+            // 新題無敵時間內，立體不往角色方向移動到可碰撞安全緩衝範圍內
+            const safeBuffer = poppo.radius + item.radius + 135;
+            if (spawnInvulnTimer > 0) {
+              const currDist = Math.hypot(poppo.x - item.x, poppo.y - item.y);
+              const nextDist = Math.hypot(poppo.x - item.x, poppo.y - nextY);
+              if (nextDist < safeBuffer && nextDist < currDist) {
+                item.vy = -item.vy;
+              } else {
+                item.y = nextY;
+              }
+            } else {
+              item.y = nextY;
+            }
+
+            if (item.y - item.radius < item.topLimit) {
+              item.y = item.topLimit + item.radius;
+              item.vy = Math.abs(item.vy);
+            } else if (item.y + item.radius > item.botLimit) {
+              item.y = item.botLimit - item.radius;
+              item.vy = -Math.abs(item.vy);
+            }
+
+            // 只有在非無敵保護期間才計算碰撞，避免新題一出現就被衝力誤碰
+            if (spawnInvulnTimer <= 0) {
+              const dist = Math.hypot(poppo.x - item.x, poppo.y - item.y);
+              if (dist < poppo.radius * 0.80 + item.radius * 0.80) {
+                handleShapeCollision(item);
+                break;
+              }
+            }
+          }
+        }
+
+        // 7. 更新浮動得分特效文字
+        for (let i = floatingPopups.length - 1; i >= 0; i--) {
+          const p = floatingPopups[i];
+          p.y -= 55 * dt;
+          p.life -= dt;
+          if (p.life <= 0) {
+            floatingPopups.splice(i, 1);
+          }
+        }
+      }
+
+      function handleShapeCollision(item) {
+        // 啟動 1.75 秒冷卻，期間不再重複判定，冷卻結束自動出下一題
+        roundCooldown = 1.75;
+
+        // 輕微向反方向彈開 Poppo
+        const pushAngle = Math.atan2(poppo.y - item.y, poppo.x - item.x);
+        poppo.vx = Math.cos(pushAngle) * 260;
+        poppo.vy = Math.sin(pushAngle) * 260;
+
+        if (item.isCorrect) {
+          score += 2;
+          correctCount += 1;
+          poppo.mood = "happy";
+          poppo.moodTimer = 1.4;
+          item.feedback = "correct";
+          SoundFX.correct();
+          addFloatingPopup(item.x, item.y - 30, "+2 分！答對了！", "#1e9e38");
+        } else {
+          score = Math.max(0, score - 1); // 分數最低為 0，不變成負分
+          wrongCount += 1;
+          poppo.mood = "hurt";
+          poppo.moodTimer = 1.4;
+          item.feedback = "wrong";
+          SoundFX.wrong();
+          addFloatingPopup(item.x, item.y - 30, `-1 分（這是${item.name}）`, "#d92b2b");
+        }
+
+        hudScore.textContent = String(score);
+      }
+
+      function addFloatingPopup(x, y, text, color) {
+        floatingPopups.push({
+          x,
+          y,
+          text,
+          color,
+          life: 1.35
+        });
+      }
+
+      /* ---------------------------------------------------------------------
+         12. 主渲染循環
+         --------------------------------------------------------------------- */
+      function render(timestamp) {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
+        lastTimestamp = timestamp;
+
+        if (!isPaused) {
+          globalTime += dt;
+        }
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        if (!isPaused) {
+          if (screenState === "countdown") {
+            // 倒數期間鏡頭僅在背景靜默對準，絕不推動角色
+            if (controlMode === "camera" && CameraTracker.isActive()) {
+              CameraTracker.update();
+            }
+            poppo.vx = 0;
+            poppo.vy = 0;
+
+            countdownRemaining -= dt;
+            const digit = Math.ceil(countdownRemaining);
+            if (digit >= 1) {
+              countdownNumberText.textContent = String(digit);
+              if (digit !== lastCountdownDigit) {
+                lastCountdownDigit = digit;
+                SoundFX.countdownBeep();
+              }
+            } else {
+              beginActivePlayAfterCountdown();
+            }
+          } else if (screenState === "playing") {
+            updateGameplay(dt);
+          }
+        }
+
+        // 1. 繪製森林背景
+        drawForestBackground(ctx, w, h, globalTime, poppo.mood);
+
+        // 2. 繪製 3 條垂直軌道導引線與立體圖形
+        if (screenState === "playing" || screenState === "countdown" || screenState === "preparing") {
+          const trackXs = getTrackXPositions(w);
+          const topLimit = Math.max(138, h * 0.22);
+          const botLimit = h - Math.max(82, h * 0.12);
+
+          ctx.save();
+          ctx.setLineDash([10, 10]);
+          ctx.strokeStyle = "rgba(255, 250, 224, 0.48)";
+          ctx.lineWidth = 4;
+          trackXs.forEach((tx) => {
+            ctx.beginPath();
+            ctx.moveTo(tx, topLimit);
+            ctx.lineTo(tx, botLimit);
+            ctx.stroke();
+          });
+          ctx.restore();
+
+          // 繪製 3 個立體圖形
+          const isProtected = spawnInvulnTimer > 0;
+          trackShapes.forEach((item) => {
+            draw3DSolidCard(ctx, item.name, item.x, item.y, item.radius, item.feedback, item.customSides, isProtected);
+          });
+
+          // 若處於新題短暫無敵保護時間，在 Poppo 周圍繪製金色護盾光圈
+          if (isProtected) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(255, 230, 102, 0.9)";
+            ctx.lineWidth = 4.5;
+            ctx.setLineDash([8, 6]);
+            ctx.beginPath();
+            ctx.arc(poppo.x, poppo.y, poppo.radius + 14, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // 繪製玩家角色：猴子勇士 Poppo
+          drawPoppo(ctx, poppo.x, poppo.y, poppo.radius, poppo.mood, globalTime);
+
+          // 若鏡頭體感開啟，在左下角閒置區繪製預覽（絕不遮擋右側三條軌道）
+          if (controlMode === "camera" && CameraTracker.isActive()) {
+            CameraTracker.drawOverlay(ctx, w, h);
+          }
+
+          // 繪製 +2 / -1 浮動回饋文字
+          floatingPopups.forEach((p) => {
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, p.life * 1.4);
+            ctx.font = "900 28px 'PingFang HK', 'Microsoft JhengHei', sans-serif";
+            ctx.textAlign = "center";
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 6;
+            ctx.strokeText(p.text, p.x, p.y);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, p.x, p.y);
+            ctx.restore();
+          });
+        }
+
+        // 3. 在開場畫面肖像框中持續繪製生動躍起的 Poppo
+        if (screenState === "intro") {
+          introPortraitCtx.clearRect(0, 0, 260, 260);
+          drawPoppo(introPortraitCtx, 130, 142, 86, "normal", globalTime);
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      /* ---------------------------------------------------------------------
+         13. 事件監聽綁定（按鈕、鍵盤、滑鼠、觸控）
+         --------------------------------------------------------------------- */
+      syncCameraPrefButtons();
+
+      btnPrefCameraIntro.addEventListener("click", toggleCameraPreference);
+      btnPrefCameraLevel.addEventListener("click", toggleCameraPreference);
+
+      document.getElementById("btnToLevelSelect").addEventListener("click", () => {
+        SoundFX.click();
+        introScreen.classList.add("hidden");
+        levelScreen.classList.remove("hidden");
+        screenState = "level";
+      });
+
+      document.getElementById("btnStartBeginner").addEventListener("click", () => {
+        prepareAndStartGame("beginner");
+      });
+
+      document.getElementById("btnStartAdvanced").addEventListener("click", () => {
+        prepareAndStartGame("advanced");
+      });
+
+      document.getElementById("btnPlayAgain").addEventListener("click", () => {
+        prepareAndStartGame(currentLevel);
+      });
+
+      document.getElementById("btnBackToLevels").addEventListener("click", returnToLevelSelection);
+      document.getElementById("btnPauseGame").addEventListener("click", togglePauseGame);
+      document.getElementById("btnResumeGame").addEventListener("click", togglePauseGame);
+      document.getElementById("btnPauseToLevels").addEventListener("click", returnToLevelSelection);
+      document.getElementById("btnHudReturnLevels").addEventListener("click", returnToLevelSelection);
+
+      document.getElementById("btnSwitchControl").addEventListener("click", () => {
+        toggleControlMode();
+      });
+
+      btnToggleSound.addEventListener("click", () => {
+        const isOn = SoundFX.toggle();
+        btnToggleSound.textContent = isOn ? "音效：開" : "音效：關";
+        if (isOn) SoundFX.click();
+      });
+
+      // 全螢幕切換按鈕（方便課堂投影）
+      const btnFullscreen = document.getElementById("btnFullscreen");
+      function updateFullscreenButtonLabel() {
+        const isFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+        btnFullscreen.textContent = isFs ? "退出全螢幕" : "全螢幕";
+      }
+      btnFullscreen.addEventListener("click", () => {
+        SoundFX.click();
+        const isFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!isFs) {
+          const el = document.documentElement;
+          const req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (req) {
+            Promise.resolve(req.call(el)).catch(() => {});
+          }
+        } else {
+          const exit = document.exitFullscreen || document.webkitExitFullscreen;
+          if (exit) {
+            Promise.resolve(exit.call(document)).catch(() => {});
+          }
+        }
+      });
+      document.addEventListener("fullscreenchange", updateFullscreenButtonLabel);
+      document.addEventListener("webkitfullscreenchange", updateFullscreenButtonLabel);
+
+      // 鍵盤操作（方向鍵與 WASD，P 鍵亦可暫停）
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "KeyP" && (screenState === "playing" || screenState === "countdown")) {
+          togglePauseGame();
+          return;
+        }
+        keysDown[e.code] = true;
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
+          if (screenState === "playing") e.preventDefault();
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        keysDown[e.code] = false;
+      });
+
+      // 滑鼠與觸控拖移操作
+      canvas.addEventListener("pointerdown", (e) => {
+        if (screenState !== "playing" || isPaused) return;
+        pointer.active = true;
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+      });
+
+      window.addEventListener("pointermove", (e) => {
+        if (!pointer.active || isPaused) return;
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+      });
+
+      window.addEventListener("pointerup", () => {
+        pointer.active = false;
+      });
+
+      window.addEventListener("pointercancel", () => {
+        pointer.active = false;
+      });
+
+      // 啟動主動畫循環
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
