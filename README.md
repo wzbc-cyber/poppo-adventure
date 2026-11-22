@@ -4,4 +4,4 @@ Classroom game for students. Open the live site in a normal browser so webcam mo
 
 https://wzbc-cyber.github.io/poppo-adventure/
 
-This repository is a single static page (`index.html`). GitHub Pages serves it from the `main` branch at the site root. No build step.
+This repository is a single static page (`index.html`) on the `main` branch. GitHub Pages should publish that branch from the repository root, with no build step.
